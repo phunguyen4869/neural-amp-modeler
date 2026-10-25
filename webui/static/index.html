@@ -57,6 +57,9 @@
   td.num { font-variant-numeric: tabular-nums; }
   svg { width: 100%; height: 140px; display: block; }
   a { color: var(--accent); }
+  button.link { border: 0; background: none; color: var(--accent); padding: 0 2px; font-size: 13px; }
+  button.small { padding: 3px 10px; font-size: 13px; }
+  td.actions { white-space: nowrap; }
 </style>
 </head>
 <body>
@@ -70,12 +73,12 @@
       <div>
         <label for="f-input">Input (the DI / source file you reamped)</label>
         <input type="file" id="f-input" accept=".wav,audio/wav">
-        <div class="muted" id="u-input"></div>
+        <div class="muted"><span id="u-input"></span> <button class="link" id="rm-input" hidden>Remove</button></div>
       </div>
       <div>
         <label for="f-output">Output (the recording of your gear)</label>
         <input type="file" id="f-output" accept=".wav,audio/wav">
-        <div class="muted" id="u-output"></div>
+        <div class="muted"><span id="u-output"></span> <button class="link" id="rm-output" hidden>Remove</button></div>
       </div>
     </div>
     <div class="bar" id="upbar" hidden><div></div></div>
@@ -115,9 +118,21 @@
   </section>
 
   <section class="card" id="histcard" hidden>
-    <h2>History</h2>
-    <table><thead><tr><th>Job</th><th>State</th><th>Epochs</th><th>ESR</th><th></th></tr></thead>
+    <h2>History and storage</h2>
+    <p class="muted" id="storage"></p>
+    <div class="row" style="margin-bottom:12px">
+      <button id="clean-all">Clean job files</button>
+      <button class="danger" id="delete-all">Delete all finished jobs</button>
+    </div>
+    <div class="muted" style="margin-bottom:8px">
+      "Clean" removes a job's copied recordings and checkpoints and keeps its .nam, log and ESR.
+      "Delete" removes the whole job, including its .nam.
+    </div>
+    <div id="managemsg" class="msg"></div>
+    <div style="overflow-x:auto">
+    <table><thead><tr><th>Job</th><th>State</th><th>Epochs</th><th>ESR</th><th>Model</th><th>Temp files</th><th></th></tr></thead>
     <tbody id="hist"></tbody></table>
+    </div>
   </section>
 </main>
 
@@ -248,13 +263,59 @@ function render(s) {
     if (atBottom) log.scrollTop = log.scrollHeight;
   }
 
-  $("histcard").hidden = !s.history.length;
-  $("hist").innerHTML = s.history.map((j) => `<tr>
+  for (const kind of ["input", "output"]) $("rm-" + kind).hidden = up[kind].size == null || running;
+
+  $("histcard").hidden = !s.history.length && !up.input.size && !up.output.size;
+  const st = s.storage;
+  $("storage").textContent = `Uploads: ${fmtSize(st.uploads)} · disk free ${fmtGB(st.free)} of ${fmtGB(st.total)}`;
+  $("hist").innerHTML = s.history.map((j) => {
+    const live = j.state === "running" || j.state === "queued";
+    const temp = j.sizes.wavs + j.sizes.checkpoints;
+    return `<tr>
     <td>${j.id}</td><td><span class="pill ${j.state}">${j.state}</span></td>
     <td class="num">${j.params.epochs ?? ""}</td>
     <td class="num">${j.validation_esr != null ? j.validation_esr.toFixed(4) : ""}</td>
-    <td>${j.has_model ? `<a href="/api/download?job=${j.id}">Download</a>` : ""}</td></tr>`).join("");
+    <td class="num">${j.has_model ? fmtSize(j.sizes.model) : "-"}</td>
+    <td class="num">${temp ? fmtSize(temp) : "-"}</td>
+    <td class="actions">
+      ${j.has_model ? `<a href="/api/download?job=${j.id}">Download</a>` : ""}
+      ${live ? "" : `<button class="small" data-act="clean" data-job="${j.id}" ${temp ? "" : "disabled"}>Clean</button>
+      <button class="small danger" data-act="delete" data-job="${j.id}">Delete</button>`}
+    </td></tr>`;
+  }).join("");
 }
+
+function fmtGB(n) { return (n / 1073741824).toFixed(1) + " GB"; }
+
+async function manage(path, body, confirmText) {
+  if (confirmText && !confirm(confirmText)) return;
+  $("managemsg").textContent = "";
+  try {
+    const r = await api(path, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body || {}) });
+    $("managemsg").className = "msg";
+    $("managemsg").textContent = `Done: ${r.count} item(s), ${fmtSize(r.freed)} freed.`;
+  } catch (err) {
+    $("managemsg").className = "msg err";
+    $("managemsg").textContent = err.message;
+  }
+  refresh();
+}
+
+for (const kind of ["input", "output"]) {
+  $("rm-" + kind).addEventListener("click", () =>
+    manage("/api/upload/delete", { kind }, `Remove the uploaded ${kind} file?`));
+}
+$("clean-all").addEventListener("click", () =>
+  manage("/api/cleanup", {}, "Remove copied recordings and checkpoints from all finished jobs? Models are kept."));
+$("delete-all").addEventListener("click", () =>
+  manage("/api/delete-all", {}, "Delete ALL finished jobs, including their .nam models? This cannot be undone."));
+$("hist").addEventListener("click", (e) => {
+  const b = e.target.closest("button[data-act]");
+  if (!b) return;
+  const job = b.dataset.job;
+  if (b.dataset.act === "clean") manage("/api/job/clean", { job }, `Remove the recordings and checkpoints of job ${job}? Its .nam is kept.`);
+  else manage("/api/job/delete", { job }, `Delete job ${job}, including its .nam model? This cannot be undone.`);
+});
 
 async function refresh() {
   try { render(await api("/api/status")); } catch (err) { /* server restarting */ }

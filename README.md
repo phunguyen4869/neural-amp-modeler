@@ -46,7 +46,9 @@ Open `http://<host>:8080`, upload `input.wav` and `output.wav`, set the epochs a
 start. It shows the validation ESR per epoch and offers the `.nam` for download;
 results are kept in `outputs/web/`. There is no authentication, so only expose it
 on a trusted network. "Stop and export best so far" ends training early and still
-exports a model. On CPU, 100 epochs takes hours.
+exports a model. The "History and storage" panel removes uploaded recordings, cleans a
+job's copied recordings and checkpoints (keeping its `.nam`), or deletes whole jobs.
+On CPU, 100 epochs takes hours.
 
 To run the tests: `docker compose run --rm test`.
 

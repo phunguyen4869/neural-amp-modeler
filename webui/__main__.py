@@ -129,6 +129,7 @@ def _job_summary(job_dir: Path, with_details: bool = False) -> dict:
     status = _status(job_dir)
     params = _read_json(job_dir / "params.json", {})
     out = {"id": job_dir.name, "params": params, **status}
+    out["sizes"] = _job_sizes(job_dir)
     out["has_model"] = bool(
         status.get("model") and (job_dir / status["model"]).exists()
     )
@@ -150,6 +151,107 @@ def _uploads_state() -> dict:
         }
         for kind in KINDS
     }
+
+
+def _link_or_copy(src: Path, dst: Path):
+    """Share the bytes with the upload when possible so each job costs no extra disk."""
+    try:
+        os.link(src, dst)
+    except OSError:
+        shutil.copyfile(src, dst)
+
+
+def _freeable(path: Path) -> int:
+    """Bytes actually released by deleting this file (0 while another link keeps it)."""
+    try:
+        st = path.stat()
+    except OSError:
+        return 0
+    return st.st_size if st.st_nlink == 1 else 0
+
+
+def _job_sizes(job_dir: Path) -> dict:
+    sizes = {"wavs": 0, "checkpoints": 0, "model": 0, "other": 0}
+    for path in job_dir.rglob("*"):
+        if not path.is_file():
+            continue
+        size = path.stat().st_size
+        if path.parent == job_dir and path.name in ("input.wav", "output.wav"):
+            sizes["wavs"] += size
+        elif path.suffix == ".ckpt":
+            sizes["checkpoints"] += size
+        elif path.parent.name == "model":
+            sizes["model"] += size
+        else:
+            sizes["other"] += size
+    return sizes
+
+
+def _storage() -> dict:
+    usage = shutil.disk_usage(ROOT)
+    uploads = sum(
+        (UPLOADS / f"{k}.wav").stat().st_size
+        for k in KINDS
+        if (UPLOADS / f"{k}.wav").exists()
+    )
+    return {"uploads": uploads, "free": usage.free, "total": usage.total}
+
+
+def _remove_job_files(job_dir: Path) -> int:
+    """Drop the WAV copies and checkpoints; keep the model, log and ESR history."""
+    freed = 0
+    victims = [job_dir / "input.wav", job_dir / "output.wav"]
+    victims += list((job_dir / "train").glob("**/*.ckpt"))
+    for path in victims:
+        freed += _freeable(path)
+        path.unlink(missing_ok=True)
+    return freed
+
+
+def _is_job_id(job_id) -> bool:
+    return isinstance(job_id, str) and re.fullmatch(r"[0-9]{8}-[0-9]{6}", job_id)
+
+
+def _manage(action: str, body: dict) -> dict:
+    """Delete or clean files. Never touches the running job."""
+    with _lock:
+        running = _running_job()
+        freed, count = 0, 0
+        if action == "delete_upload":
+            kind = body.get("kind")
+            if kind not in KINDS:
+                raise ValueError("kind must be input or output.")
+            if running is not None:
+                raise RuntimeError("Wait for the running job to finish.")
+            path = UPLOADS / f"{kind}.wav"
+            if path.exists():
+                freed, count = _freeable(path), 1
+                path.unlink()
+            meta = _read_json(UPLOADS / "meta.json", {})
+            meta.pop(kind, None)
+            _write_json(UPLOADS / "meta.json", meta)
+            return {"freed": freed, "count": count}
+        if action in ("clean_job", "delete_job"):
+            targets = [body.get("job")]
+        elif action in ("clean_all", "delete_all"):
+            targets = [j.name for j in _job_dirs()]
+        else:
+            raise ValueError("Unknown action.")
+        for job_id in targets:
+            if not _is_job_id(job_id) or not (JOBS / job_id).is_dir():
+                raise ValueError("Unknown job.")
+            job_dir = JOBS / job_id
+            if running is not None and job_dir == running:
+                if action in ("clean_job", "delete_job"):
+                    raise RuntimeError("This job is still running.")
+                continue
+            if action.startswith("clean"):
+                freed += _remove_job_files(job_dir)
+            else:
+                freed += sum(_freeable(f) for f in job_dir.rglob("*") if f.is_file())
+                shutil.rmtree(job_dir)
+            count += 1
+        return {"freed": freed, "count": count}
 
 
 def _clean_str(value, limit=80) -> str:
@@ -193,7 +295,7 @@ def _start_job(body: dict) -> dict:
         job_dir = JOBS / time.strftime("%Y%m%d-%H%M%S")
         job_dir.mkdir(parents=True)
         for kind in KINDS:
-            shutil.copyfile(UPLOADS / f"{kind}.wav", job_dir / f"{kind}.wav")
+            _link_or_copy(UPLOADS / f"{kind}.wav", job_dir / f"{kind}.wav")
         _write_json(job_dir / "params.json", params)
         _write_json(job_dir / "status.json", {"state": "queued"})
         log = open(job_dir / "log.txt", "wb")
@@ -217,6 +319,15 @@ def _cancel() -> bool:
     if pid:
         os.kill(pid, signal.SIGINT)
     return True
+
+
+_MANAGE_ROUTES = {
+    "/api/upload/delete": "delete_upload",
+    "/api/job/clean": "clean_job",
+    "/api/job/delete": "delete_job",
+    "/api/cleanup": "clean_all",
+    "/api/delete-all": "delete_all",
+}
 
 
 class Handler(BaseHTTPRequestHandler):
@@ -253,6 +364,7 @@ class Handler(BaseHTTPRequestHandler):
                 {
                     "now": time.time(),
                     "uploads": _uploads_state(),
+                    "storage": _storage(),
                     "job": _job_summary(jobs[0], True) if jobs else None,
                     "history": [_job_summary(j) for j in jobs[:20]],
                 }
@@ -294,6 +406,13 @@ class Handler(BaseHTTPRequestHandler):
                 self._error(409, str(e))
         elif url.path == "/api/cancel":
             self._json({"cancelled": _cancel()})
+        elif url.path in _MANAGE_ROUTES:
+            try:
+                self._json(_manage(_MANAGE_ROUTES[url.path], body))
+            except ValueError as e:
+                self._error(400, str(e))
+            except RuntimeError as e:
+                self._error(409, str(e))
         else:
             self._error(404, "Not found.")
 
