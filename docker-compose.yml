@@ -1,0 +1,16 @@
+services:
+  train:
+    build: .
+    volumes:
+      - ./data:/data
+      - ./outputs:/outputs
+    # Paths in the JSON configs are relative to /data.
+    # Example:
+    #   docker compose run --rm train data.json model.json learning.json /outputs
+    command: ["--help"]
+
+  test:
+    build: .
+    working_dir: /app
+    entrypoint: ["pytest"]
+    command: ["tests"]

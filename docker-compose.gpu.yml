@@ -1,0 +1,11 @@
+# Use on a Linux host with NVIDIA drivers + nvidia-container-toolkit:
+#   docker compose -f docker-compose.yml -f docker-compose.gpu.yml run --rm train ...
+services:
+  train:
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]

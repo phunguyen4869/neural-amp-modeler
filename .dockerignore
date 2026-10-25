@@ -1,0 +1,7 @@
+.git
+.venv
+outputs
+data
+**/__pycache__
+*.nam
+*.ckpt
