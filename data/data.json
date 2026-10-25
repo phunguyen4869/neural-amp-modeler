@@ -16,6 +16,15 @@
     "common": {
         "x_path": "/data/input.wav",
         "y_path": "/data/output.wav",
-        "delay": 0
-    }
+        "delay": 0,
+        "allow_unequal_lengths": true
+    },
+    "joint": [
+        {
+            "name": "nam.data.normalize_joint_dataset_output",
+            "kwargs": {
+                "level_rms_dbfs": -18.0
+            }
+        }
+    ]
 }

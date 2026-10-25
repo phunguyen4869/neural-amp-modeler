@@ -13,6 +13,8 @@ Training can be run in a container (CLI only; the `nam` GUI is not supported).
 
 1. Put `input.wav` and `output.wav` in `data/`. The example `data/data.json` expects
    them at `/data/input.wav` and `/data/output.wav`; adjust it to match your recording.
+   `data/wavenet_a2.json` is the A2 model (packed WaveNet) used by the simplified
+   trainers; for the plain WaveNet use `nam_full_configs/models/wavenet.json` instead.
 2. Build the image (CPU-only PyTorch by default):
    ```bash
    docker compose build
@@ -24,12 +26,12 @@ Training can be run in a container (CLI only; the `nam` GUI is not supported).
    ```
 3. Train on a Linux host with an NVIDIA GPU (requires `nvidia-container-toolkit`):
    ```bash
-   docker compose -f docker-compose.yml -f docker-compose.gpu.yml run --rm train data.json wavenet.json default.json /outputs
+   docker compose -f docker-compose.yml -f docker-compose.gpu.yml run --rm train data.json wavenet_a2.json default.json /outputs
    ```
    Or on CPU only (very slow; Docker on macOS cannot use the GPU), using
    `default_cpu.json`, which sets `"accelerator": "cpu"`:
    ```bash
-   docker compose run --rm train data.json wavenet.json default_cpu.json /outputs
+   docker compose run --rm train data.json wavenet_a2.json default_cpu.json /outputs
    ```
    For a quick smoke test, lower `max_epochs` in `default_cpu.json`.
 4. The exported `.nam` model is written to `outputs/`.
