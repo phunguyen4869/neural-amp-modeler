@@ -15,9 +15,10 @@ Training can be run in a container (CLI only; the `nam` GUI is not supported).
    them at `/data/input.wav` and `/data/output.wav`; adjust it to match your recording.
 2. Build the image (CPU-only PyTorch by default):
    ```bash
-   docker compose build train
+   docker compose build
    ```
-   For GPU training, build with the CUDA-enabled PyTorch instead:
+   This builds both the `train` and `test` services. For GPU training, build with the
+   CUDA-enabled PyTorch instead:
    ```bash
    docker compose -f docker-compose.yml -f docker-compose.gpu.yml build train
    ```
@@ -25,10 +26,12 @@ Training can be run in a container (CLI only; the `nam` GUI is not supported).
    ```bash
    docker compose -f docker-compose.yml -f docker-compose.gpu.yml run --rm train data.json wavenet.json default.json /outputs
    ```
-   Or on CPU only (slow; Docker on macOS cannot use the GPU):
+   Or on CPU only (very slow; Docker on macOS cannot use the GPU), using
+   `default_cpu.json`, which sets `"accelerator": "cpu"`:
    ```bash
-   docker compose run --rm train data.json wavenet.json default.json /outputs
+   docker compose run --rm train data.json wavenet.json default_cpu.json /outputs
    ```
+   For a quick smoke test, lower `max_epochs` in `default_cpu.json`.
 4. The exported `.nam` model is written to `outputs/`.
 
 To run the tests: `docker compose run --rm test`.
