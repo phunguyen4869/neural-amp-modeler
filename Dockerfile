@@ -1,7 +1,7 @@
 FROM python:3.12-slim
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
-        libsndfile1 libportaudio2 \
+        libsndfile1 libportaudio2 libtk8.6 \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
@@ -17,7 +17,7 @@ ARG TORCH_INDEX_URL=https://download.pytorch.org/whl/cpu
 RUN if [ -n "$TORCH_INDEX_URL" ]; then \
         pip install --no-cache-dir torch --index-url "$TORCH_INDEX_URL"; \
     fi
-RUN pip install --no-cache-dir . pytest
+RUN pip install --no-cache-dir ".[test]"
 
 # Mount training data at /data (audio + configs) and collect results in /outputs.
 VOLUME ["/data", "/outputs"]
