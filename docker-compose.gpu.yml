@@ -2,6 +2,9 @@
 #   docker compose -f docker-compose.yml -f docker-compose.gpu.yml run --rm train ...
 services:
   train:
+    build:
+      args:
+        TORCH_INDEX_URL: ""  # default PyPI wheels, which bundle CUDA
     deploy:
       resources:
         reservations:

@@ -13,9 +13,13 @@ Training can be run in a container (CLI only; the `nam` GUI is not supported).
 
 1. Put `input.wav` and `output.wav` in `data/`. The example `data/data.json` expects
    them at `/data/input.wav` and `/data/output.wav`; adjust it to match your recording.
-2. Build the image:
+2. Build the image (CPU-only PyTorch by default):
    ```bash
    docker compose build train
+   ```
+   For GPU training, build with the CUDA-enabled PyTorch instead:
+   ```bash
+   docker compose -f docker-compose.yml -f docker-compose.gpu.yml build train
    ```
 3. Train on a Linux host with an NVIDIA GPU (requires `nvidia-container-toolkit`):
    ```bash
