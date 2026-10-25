@@ -27,7 +27,7 @@
           padding: 16px; margin-bottom: 16px; }
   .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; }
   label { display: block; font-size: 13px; color: var(--muted); margin-bottom: 4px; }
-  input[type=text], input[type=number], input[type=file] {
+  input[type=text], input[type=number], input[type=file], select {
     width: 100%; padding: 8px 10px; border: 1px solid var(--line); border-radius: 6px;
     background: var(--bg); color: var(--text); font: inherit; }
   .check { display: flex; gap: 8px; align-items: center; font-size: 14px; color: var(--text); }
@@ -94,7 +94,12 @@
       <div><label for="seed">Seed</label><input type="number" id="seed" value="0"></div>
       <div><label for="name">Model name</label><input type="text" id="name" placeholder="model" maxlength="80"></div>
       <div><label for="by">Modeled by</label><input type="text" id="by" maxlength="80"></div>
+      <div>
+        <label for="device">Device</label>
+        <select id="device"><option value="auto">Auto (GPU if available)</option><option value="cpu">CPU only</option></select>
+      </div>
     </div>
+    <div class="muted" id="devinfo" style="margin-top:8px"></div>
     <p class="check"><input type="checkbox" id="ignore"><label for="ignore" style="margin:0;color:inherit">Ignore data checks (at your own risk)</label></p>
     <div class="row">
       <button class="primary" id="start">Start training</button>
@@ -190,7 +195,7 @@ $("start").addEventListener("click", async () => {
       body: JSON.stringify({
         epochs: num("epochs"), latency: num("latency"), batch_size: num("batch"),
         seed: num("seed"), name: $("name").value, modeled_by: $("by").value,
-        ignore_checks: $("ignore").checked,
+        ignore_checks: $("ignore").checked, device: $("device").value,
       }),
     });
     refresh();
@@ -216,6 +221,22 @@ function chart(points) {
   svg.innerHTML = `<path d="${d}" fill="none" stroke="var(--accent)" stroke-width="2" vector-effect="non-scaling-stroke"/>`;
 }
 
+let devKey = "";
+function renderDevices(d) {
+  const key = JSON.stringify(d);
+  if (key === devKey) return;
+  devKey = key;
+  const sel = $("device"), keep = sel.value;
+  const gpus = d.gpus || [];
+  sel.innerHTML = `<option value="auto">Auto${gpus.length ? " (GPU)" : " (CPU)"}</option><option value="cpu">CPU only</option>` +
+    gpus.map((n, i) => `<option value="cuda:${i}">GPU ${i}: ${n.replace(/[<>&]/g, "")}</option>`).join("");
+  if ([...sel.options].some((o) => o.value === keep)) sel.value = keep;
+  $("devinfo").textContent = !d.ready ? "Detecting devices…"
+    : gpus.length ? `${gpus.length} CUDA GPU(s) detected.`
+    : d.error ? `Device detection failed: ${d.error}`
+    : `No CUDA GPU available (PyTorch ${d.torch}${d.cuda_build ? ", CUDA " + d.cuda_build : ", CPU-only build"}). Training will run on the CPU.`;
+}
+
 function fmtDuration(sec) {
   sec = Math.max(0, Math.round(sec));
   const h = Math.floor(sec / 3600), m = Math.floor(sec % 3600 / 60);
@@ -227,6 +248,8 @@ function render(s) {
   $("u-input").textContent = up.input.name ? `${up.input.name} (${fmtSize(up.input.size)})` : fmtSize(null);
   $("u-output").textContent = up.output.name ? `${up.output.name} (${fmtSize(up.output.size)})` : fmtSize(null);
 
+  renderDevices(s.devices);
+
   const job = s.job;
   const running = job && (job.state === "running" || job.state === "queued");
   $("start").disabled = running || busy || up.input.size == null || up.output.size == null;
@@ -235,7 +258,7 @@ function render(s) {
 
   $("jobcard").hidden = !job;
   if (job) {
-    $("jobid").textContent = job.id;
+    $("jobid").textContent = job.id + " · " + (job.params.device || "auto");
     $("state").textContent = job.state;
     $("state").className = "pill " + job.state;
     $("jobmsg").textContent = job.message || "";

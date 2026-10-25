@@ -12,3 +12,15 @@ services:
             - driver: nvidia
               count: all
               capabilities: [gpu]
+
+  web:
+    build:
+      args:
+        TORCH_INDEX_URL: ""  # default PyPI wheels, which bundle CUDA
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]

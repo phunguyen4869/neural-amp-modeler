@@ -46,7 +46,10 @@ Open `http://<host>:8080`, upload `input.wav` and `output.wav`, set the epochs a
 start. It shows the validation ESR per epoch and offers the `.nam` for download;
 results are kept in `outputs/web/`. There is no authentication, so only expose it
 on a trusted network. "Stop and export best so far" ends training early and still
-exports a model. The "History and storage" panel removes uploaded recordings, cleans a
+exports a model. Choose the device (Auto, CPU only, or a specific GPU); GPUs are
+listed only when the image has CUDA PyTorch and the container can see them (start
+with `docker compose -f docker-compose.yml -f docker-compose.gpu.yml up -d web`).
+The "History and storage" panel removes uploaded recordings, cleans a
 job's copied recordings and checkpoints (keeping its `.nam`), or deletes whole jobs.
 On CPU, 100 epochs takes hours.
 

@@ -22,8 +22,29 @@ STATIC = Path(__file__).parent / "static"
 MAX_UPLOAD_BYTES = int(os.environ.get("NAM_WEB_MAX_UPLOAD_MB", "1024")) * 1024 * 1024
 KINDS = ("input", "output")
 
+_DETECT = (
+    "import json, torch;"
+    "print(json.dumps({'torch': torch.__version__, 'cuda_build': torch.version.cuda,"
+    " 'gpus': [torch.cuda.get_device_name(i) for i in range(torch.cuda.device_count())]"
+    " if torch.cuda.is_available() else [],"
+    " 'mps': bool(torch.backends.mps.is_available())}))"
+)
+_devices = {"ready": False}
+
 _lock = threading.Lock()
 _proc = None  # type: subprocess.Popen | None
+
+
+def _detect_devices():
+    """Ask a throwaway process so the server itself never imports torch."""
+    global _devices
+    try:
+        out = subprocess.run(
+            [sys.executable, "-c", _DETECT], capture_output=True, text=True, timeout=120
+        )
+        _devices = {"ready": True, **json.loads(out.stdout.strip().splitlines()[-1])}
+    except Exception as e:
+        _devices = {"ready": True, "error": str(e), "gpus": [], "mps": False}
 
 
 def _read_json(path: Path, default=None):
@@ -275,6 +296,15 @@ def _start_job(body: dict) -> dict:
         raise ValueError("epochs must be between 1 and 1000.")
     if not 1 <= batch_size <= 256:
         raise ValueError("batch_size must be between 1 and 256.")
+    device = str(body.get("device") or "auto")
+    gpus = _devices.get("gpus", [])
+    if device not in ("auto", "cpu"):
+        m = re.fullmatch(r"cuda:(\d+)", device)
+        if not m or int(m.group(1)) >= len(gpus):
+            raise ValueError(
+                "The selected GPU is not available. "
+                + ("No CUDA GPU was detected." if not gpus else "Pick one from the list.")
+            )
     name = _clean_str(body.get("name"))
     basename = re.sub(r"[^A-Za-z0-9._-]+", "_", name).strip("._") or "model"
     params = {
@@ -283,6 +313,7 @@ def _start_job(body: dict) -> dict:
         "seed": seed,
         "latency": latency,
         "ignore_checks": bool(body.get("ignore_checks")),
+        "device": device,
         "name": name,
         "modeled_by": _clean_str(body.get("modeled_by")),
         "basename": basename,
@@ -299,8 +330,14 @@ def _start_job(body: dict) -> dict:
         _write_json(job_dir / "params.json", params)
         _write_json(job_dir / "status.json", {"state": "queued"})
         log = open(job_dir / "log.txt", "wb")
+        env = dict(os.environ)
+        if device == "cpu":
+            env["CUDA_VISIBLE_DEVICES"] = ""  # core.train then falls back to the CPU
+        elif device.startswith("cuda:"):
+            env["CUDA_VISIBLE_DEVICES"] = device.split(":")[1]
         _proc = subprocess.Popen(
             [sys.executable, "-u", "-m", "webui.worker", str(job_dir)],
+            env=env,
             stdout=log,
             stderr=subprocess.STDOUT,
             start_new_session=True,
@@ -365,6 +402,7 @@ class Handler(BaseHTTPRequestHandler):
                     "now": time.time(),
                     "uploads": _uploads_state(),
                     "storage": _storage(),
+                    "devices": _devices,
                     "job": _job_summary(jobs[0], True) if jobs else None,
                     "history": [_job_summary(j) for j in jobs[:20]],
                 }
@@ -451,6 +489,7 @@ def main():
     JOBS.mkdir(parents=True, exist_ok=True)
     UPLOADS.mkdir(parents=True, exist_ok=True)
     port = int(os.environ.get("NAM_WEB_PORT", "8080"))
+    threading.Thread(target=_detect_devices, daemon=True).start()
     server = ThreadingHTTPServer(("0.0.0.0", port), Handler)
     print(f"NAM web UI on http://0.0.0.0:{port} (data in {ROOT})", flush=True)
     server.serve_forever()
