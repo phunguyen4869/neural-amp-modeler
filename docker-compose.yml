@@ -14,3 +14,18 @@ services:
     working_dir: /app
     entrypoint: ["pytest"]
     command: ["tests"]
+
+  # Web UI for A2 training: docker compose up web, then open http://<host>:8080
+  # No authentication; only expose it on a trusted network.
+  web:
+    build: .
+    image: neural-amp-modeler-train
+    working_dir: /app
+    entrypoint: ["python", "-m", "webui"]
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./outputs:/outputs
+      # Mounted so UI changes don't require rebuilding the image.
+      - ./webui:/app/webui:ro
+    restart: unless-stopped

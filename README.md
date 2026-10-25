@@ -36,6 +36,18 @@ Training can be run in a container (CLI only; the `nam` GUI is not supported).
    For a quick smoke test, lower `max_epochs` in `default_cpu.json`.
 4. The exported `.nam` model is written to `outputs/`.
 
+### Web UI
+A small browser UI trains an A2 model on a headless host (it uses the same trainer
+as the GUI and Colab, with automatic latency detection and data checks):
+```bash
+docker compose up -d web
+```
+Open `http://<host>:8080`, upload `input.wav` and `output.wav`, set the epochs and
+start. It shows the validation ESR per epoch and offers the `.nam` for download;
+results are kept in `outputs/web/`. There is no authentication, so only expose it
+on a trusted network. "Stop and export best so far" ends training early and still
+exports a model. On CPU, 100 epochs takes hours.
+
 To run the tests: `docker compose run --rm test`.
 
 ## Documentation
