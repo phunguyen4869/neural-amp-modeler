@@ -11,6 +11,7 @@ Integrated loudness is ITU-R BS.1770-4 LUFS of those aligned signals.
 import json as _json
 import math as _math
 from dataclasses import dataclass as _dataclass
+from dataclasses import field as _field
 from pathlib import Path as _Path
 from typing import List as _List
 from typing import Optional as _Optional
@@ -42,6 +43,7 @@ class LoadedNam:
     name: str
     architecture: str
     sample_rate: _Optional[float]
+    notes: _List[str] = _field(default_factory=list)
 
 
 @_dataclass
@@ -142,24 +144,25 @@ def load_nam(path: _Path, name: _Optional[str] = None) -> LoadedNam:
             config = _json.load(handle)
     except (OSError, UnicodeError, _json.JSONDecodeError) as exc:
         raise ValueError(f"{display_name} is not valid .nam JSON.") from exc
-    architecture = config.get("architecture")
+    runnable, notes = _runnable_nam(config, display_name)
     try:
-        model = _init_from_nam(config)
+        model = _init_from_nam(runnable)
     except KeyError as exc:
         raise ValueError(
-            f"Architecture '{architecture}' in {display_name} is not supported."
+            f"Architecture '{runnable.get('architecture')}' in {display_name} is not supported."
         ) from exc
     except Exception as exc:
         raise ValueError(f"Could not load {display_name}: {exc}") from exc
     model.eval()
-    rate = config.get("sample_rate")
+    rate = runnable.get("sample_rate")
     if rate is not None:
         rate = float(rate)
     return LoadedNam(
         model=model,
         name=display_name,
-        architecture=str(architecture),
+        architecture=str(runnable.get("architecture")),
         sample_rate=rate,
+        notes=notes,
     )
 
 
@@ -394,7 +397,7 @@ def _finish(
 def _render_on_di(
     loaded: LoadedNam, di: _np.ndarray, di_rate: int
 ) -> _Tuple[_np.ndarray, _List[str]]:
-    notes: _List[str] = []
+    notes: _List[str] = list(loaded.notes)
     model_rate = loaded.sample_rate
     if model_rate is None:
         notes.append(
@@ -582,6 +585,40 @@ def _db20(amplitude: float) -> _Optional[float]:
 def _rms_dbfs(audio: _np.ndarray) -> _Optional[float]:
     rms = _math.sqrt(float(_np.mean(audio * audio)))
     return _db20(rms)
+
+
+def _runnable_nam(config: dict, display_name: str) -> _Tuple[dict, _List[str]]:
+    """Return the network a .nam file should render, plus notes.
+
+    An A1 file is already one Linear, WaveNet, LSTM, or Sequential model.
+    An A2 file is a SlimmableContainer. The plugin's full-quality setting
+    uses the first submodel whose max value is at least 1.
+    """
+    if config.get("architecture") != "SlimmableContainer":
+        return config, []
+    submodels = (config.get("config") or {}).get("submodels")
+    if not isinstance(submodels, list) or not submodels:
+        raise ValueError(f"{display_name} is an A2 model with no submodels.")
+    for entry in submodels:
+        if not isinstance(entry, dict):
+            continue
+        max_value = entry.get("max_value")
+        model = entry.get("model")
+        if not isinstance(max_value, (int, float)) or isinstance(max_value, bool):
+            continue
+        if not isinstance(model, dict) or float(max_value) < 1.0:
+            continue
+        if model.get("sample_rate") is None and config.get("sample_rate") is not None:
+            model = {**model, "sample_rate": config["sample_rate"]}
+        note = (
+            f"{display_name} is an A2 SlimmableContainer. The null test renders "
+            f"the full submodel ({model.get('architecture')}, max value {float(max_value):g})."
+        )
+        return model, [note]
+    raise ValueError(
+        f"{display_name} is an A2 model with no full submodel. "
+        "The last submodel must cover a max value of 1."
+    )
 
 
 def _pcm_wav_channels(path: _Path) -> _Optional[int]:

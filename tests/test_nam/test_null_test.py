@@ -294,6 +294,53 @@ def test_di_and_wet_must_share_a_sample_rate(tmp_path: _Path):
         )
 
 
+def _linear_nam(gain: float) -> dict:
+    return {
+        "version": "0.5.4",
+        "architecture": "Linear",
+        "config": {"receptive_field": 1, "bias": False},
+        "weights": [gain],
+        "sample_rate": 48000,
+    }
+
+
+def test_a2_container_renders_the_full_submodel(tmp_path: _Path):
+    container = {
+        "version": "0.7.0",
+        "architecture": "SlimmableContainer",
+        "sample_rate": 48000,
+        "weights": [],
+        "config": {
+            "submodels": [
+                {"max_value": 0.5, "model": _linear_nam(0.25)},
+                {"max_value": 1.0, "model": _linear_nam(1.0)},
+            ]
+        },
+    }
+    path = tmp_path / "AATR.nam"
+    path.write_text(_json.dumps(container), encoding="utf-8")
+    loaded = _core.load_nam(path)
+    audio = _np.linspace(-0.2, 0.2, 32)
+    rendered, notes = _core._render_on_di(loaded, audio, 48_000)
+    assert loaded.architecture == "Linear"
+    assert _np.allclose(rendered, audio, atol=1e-5)
+    assert any("A2" in note and "full submodel" in note for note in notes)
+
+
+def test_a2_container_without_a_full_submodel_is_rejected(tmp_path: _Path):
+    container = {
+        "version": "0.7.0",
+        "architecture": "SlimmableContainer",
+        "sample_rate": 48000,
+        "weights": [],
+        "config": {"submodels": [{"max_value": 0.5, "model": _linear_nam(1.0)}]},
+    }
+    path = tmp_path / "partial.nam"
+    path.write_text(_json.dumps(container), encoding="utf-8")
+    with _pytest.raises(ValueError, match="no full submodel"):
+        _core.load_nam(path)
+
+
 def test_load_identity_nam_file():
     loaded = _core.load_nam(_resource_path("models/identity/linear_1.nam"))
     assert loaded.architecture == "Linear"
