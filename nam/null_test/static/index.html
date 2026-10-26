@@ -338,12 +338,67 @@
     });
     autoPolarity.addEventListener("change", syncInvert);
     matchGain.addEventListener("change", syncInvert);
+    let wavCheck = 0;
+
+    function wavTag(view, offset) {
+      return String.fromCharCode(
+        view.getUint8(offset),
+        view.getUint8(offset + 1),
+        view.getUint8(offset + 2),
+        view.getUint8(offset + 3)
+      );
+    }
+
+    async function wavChannelCount(file) {
+      const bytes = await file.slice(0, 65536).arrayBuffer();
+      const view = new DataView(bytes);
+      if (view.byteLength < 12 || wavTag(view, 0) !== "RIFF" || wavTag(view, 8) !== "WAVE") {
+        return null;
+      }
+      let offset = 12;
+      while (offset + 8 <= view.byteLength) {
+        const id = wavTag(view, offset);
+        const size = view.getUint32(offset + 4, true);
+        if (id === "fmt ") {
+          if (offset + 12 > view.byteLength) return null;
+          return view.getUint16(offset + 10, true);
+        }
+        const step = 8 + size + (size % 2);
+        if (step < 8) return null;
+        offset += step;
+      }
+      return null;
+    }
+
+    async function monoWavError(file) {
+      if (!file) return null;
+      let channels = null;
+      try {
+        channels = await wavChannelCount(file);
+      } catch (error) {
+        return null;
+      }
+      if (channels === null || channels === 1) return null;
+      return `${file.name} must be a mono WAV. This file has ${channels} channels.`;
+    }
+
     form.querySelectorAll('input[type="file"]').forEach((input) => {
-      input.addEventListener("change", () => {
+      input.addEventListener("change", async () => {
+        const ticket = ++wavCheck;
         const target = form.querySelector(`[data-for="${input.name}"]`);
         const file = input.files[0];
         target.textContent = file ? file.name : target.dataset.empty || "None selected";
         target.classList.toggle("chosen", Boolean(file));
+        if (input.name !== "di" && input.name !== "wet") return;
+        const message = await monoWavError(file);
+        if (ticket !== wavCheck) return;
+        if (message) {
+          statusEl.textContent = message;
+          statusEl.classList.add("error");
+        } else if (statusEl.textContent.includes("must be a mono WAV")) {
+          statusEl.textContent = "";
+          statusEl.classList.remove("error");
+        }
       });
     });
 
@@ -495,6 +550,17 @@
       const required = selected === "two_models"
         ? ["di", "model_a", "model_b"]
         : ["di", "wet", "model"];
+      for (const name of required) {
+        const file = form.elements[name].files[0];
+        if (!file) continue;
+        if (name !== "di" && name !== "wet") continue;
+        const message = await monoWavError(file);
+        if (message) {
+          statusEl.textContent = message;
+          statusEl.classList.add("error");
+          return;
+        }
+      }
       for (const name of required) {
         if (!form.elements[name].files[0]) {
           statusEl.textContent = "Choose every file before running.";

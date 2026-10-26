@@ -243,6 +243,36 @@ def test_stereo_wav_is_rejected(tmp_path: _Path):
         _core.load_wav(path, name="ban-thu.wav")
 
 
+def test_stereo_reamp_is_rejected_before_the_model_loads(tmp_path: _Path, monkeypatch):
+    di_path = tmp_path / "input.wav"
+    wet_path = tmp_path / "file_example_WAV_1MG.wav"
+    _np_to_wav(_noise(800, seed=21) * 0.1, di_path, rate=48_000, sampwidth=2)
+    stereo = _np.column_stack([_noise(800, seed=22), _noise(800, seed=23)]) * 0.1
+    _np_to_wav(stereo, wet_path, rate=48_000, sampwidth=2)
+
+    def fail_load(*_args, **_kwargs):
+        raise AssertionError("The model was loaded before the reamp was checked.")
+
+    monkeypatch.setattr(_server, "_load_nam", fail_load)
+    with _pytest.raises(ValueError, match="file_example_WAV_1MG.wav must be a mono WAV"):
+        _server._run_request(
+            {
+                "mode": "model_vs_wet",
+                "match_gain": "1",
+                "auto_polarity": "1",
+                "invert": "0",
+                "max_lag_ms": "100",
+            },
+            {
+                "di": _server._FormPart("input.wav", di_path.read_bytes()),
+                "wet": _server._FormPart(
+                    "file_example_WAV_1MG.wav", wet_path.read_bytes()
+                ),
+                "model": _server._FormPart("model.nam", b"{}"),
+            },
+        )
+
+
 def test_di_and_wet_must_share_a_sample_rate(tmp_path: _Path):
     di_path = tmp_path / "input.wav"
     wet_path = tmp_path / "output.wav"

@@ -115,6 +115,11 @@ def load_wav(path: _Path, name: _Optional[str] = None) -> _Tuple[_np.ndarray, in
     filename because ``path`` is a temporary file.
     """
     display_name = name or path.name
+    channels = _pcm_wav_channels(path)
+    if channels is not None and channels != 1:
+        raise ValueError(
+            f"{display_name} must be a mono WAV. This file has {channels} channels."
+        )
     try:
         audio, info = _wav_to_np(path, info=True)
     except (AssertionError, NotImplementedError) as exc:
@@ -577,6 +582,37 @@ def _db20(amplitude: float) -> _Optional[float]:
 def _rms_dbfs(audio: _np.ndarray) -> _Optional[float]:
     rms = _math.sqrt(float(_np.mean(audio * audio)))
     return _db20(rms)
+
+
+def _pcm_wav_channels(path: _Path) -> _Optional[int]:
+    """Read the channel count from a PCM WAV header, without decoding samples.
+
+    Returns None when the file is not a simple little-endian WAV. Callers
+    then fall through to the full reader.
+    """
+    try:
+        with open(path, "rb") as handle:
+            header = handle.read(12)
+            if len(header) < 12 or header[:4] != b"RIFF" or header[8:12] != b"WAVE":
+                return None
+            scanned = 12
+            while scanned < 1024 * 1024:
+                chunk = handle.read(8)
+                if len(chunk) < 8:
+                    return None
+                chunk_id = chunk[:4]
+                size = int.from_bytes(chunk[4:8], "little")
+                if chunk_id == b"fmt ":
+                    fmt = handle.read(4)
+                    if len(fmt) < 4:
+                        return None
+                    return int.from_bytes(fmt[2:4], "little")
+                step = size + (size & 1)
+                handle.seek(step, 1)
+                scanned += 8 + step
+    except OSError:
+        return None
+    return None
 
 
 def _is_not_mono(exc: BaseException) -> bool:

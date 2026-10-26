@@ -212,12 +212,19 @@ def _run_request(fields: dict, files: dict):
         if mode == "model_vs_wet":
             model_part = _require_file(files, "model", "model file")
             wet_part = _require_file(files, "wet", "reamp")
-            model_path = _as_temp(model_part, ".nam")
-            wet_path = None
+            # Reject a bad reamp before building the model. Loading a WaveNet
+            # is the slow part, and a stereo or mismatched file cannot be nulled.
+            wet_path = _as_temp(wet_part, ".wav")
+            model_path = None
             try:
-                wet_path = _as_temp(wet_part, ".wav")
-                model = _load_nam(model_path, name=model_part.filename)
                 wet, wet_rate = _load_wav(wet_path, name=wet_part.filename)
+                if wet_rate != di_rate:
+                    raise ValueError(
+                        f"The DI is {di_rate} Hz but the reamp is {wet_rate} Hz. "
+                        "The two WAV files must share a sample rate."
+                    )
+                model_path = _as_temp(model_part, ".nam")
+                model = _load_nam(model_path, name=model_part.filename)
                 return _compare_model_to_wet(
                     di,
                     di_rate,
@@ -228,9 +235,9 @@ def _run_request(fields: dict, files: dict):
                     **options,
                 )
             finally:
-                model_path.unlink(missing_ok=True)
-                if wet_path is not None:
-                    wet_path.unlink(missing_ok=True)
+                if model_path is not None:
+                    model_path.unlink(missing_ok=True)
+                wet_path.unlink(missing_ok=True)
         if mode == "two_models":
             part_a = _require_file(files, "model_a", "model A")
             part_b = _require_file(files, "model_b", "model B")
