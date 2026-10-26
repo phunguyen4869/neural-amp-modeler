@@ -29,3 +29,17 @@ services:
       # Mounted so UI changes don't require rebuilding the image.
       - ./webui:/app/webui:ro
     restart: unless-stopped
+
+  # Null-test page: docker compose up null-test, then open http://<host>:8765
+  # No authentication; only expose it on a trusted network.
+  null-test:
+    build: .
+    image: neural-amp-modeler-train
+    entrypoint: ["nam-null-test"]
+    command: ["--host", "0.0.0.0", "--port", "8765", "--no-open"]
+    ports:
+      - "8765:8765"
+    volumes:
+      # Mounted so UI changes don't require rebuilding the image.
+      - ./nam/null_test:/usr/local/lib/python3.12/site-packages/nam/null_test:ro
+    restart: unless-stopped

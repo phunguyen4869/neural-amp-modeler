@@ -49,6 +49,7 @@ homepage = "https://github.com/sdatkinson/"
 nam = "nam.cli:nam_gui"
 nam-full = "nam.cli:nam_full"
 nam-hello-world = "nam.cli:nam_hello_world"
+nam-null-test = "nam.null_test.server:main"
 
 [tool.setuptools_scm]
 version_scheme = "guess-next-dev"
@@ -68,10 +69,12 @@ packages = [
     "nam.models",
     "nam.models._resources",
     "nam.models.wavenet",
+    "nam.null_test",
 ]
 
 [tool.setuptools.package-data]
 "nam.train._resources" = ["*.json"]
+"nam.null_test" = ["static/*.html"]
 
 [tool.pytest.ini_options]
 addopts = "-x"

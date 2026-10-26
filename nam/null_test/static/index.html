@@ -1,0 +1,540 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Null test · NAM</title>
+  <style>
+    :root {
+      --bg: #12110e;
+      --panel: #1c1a16;
+      --panel-2: #24211c;
+      --line: #3c362e;
+      --text: #f4efe6;
+      --muted: #c4b7a4;
+      --amber: #e6a23c;
+      --amber-dim: #8a5e1d;
+      --blue: #8eb6d9;
+      --residual: #d4725a;
+      --good: #9cbe86;
+      --danger: #e07a68;
+      --shadow: 0 18px 50px rgba(0, 0, 0, 0.28);
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background:
+        radial-gradient(1200px 500px at 10% -10%, rgba(230, 162, 60, 0.12), transparent 55%),
+        var(--bg);
+      color: var(--text);
+      font: 16px/1.45 "Segoe UI", "Helvetica Neue", sans-serif;
+    }
+    .wrap {
+      width: min(1120px, calc(100% - 32px));
+      margin: 0 auto;
+      padding: 36px 0 64px;
+    }
+    header { max-width: 680px; margin-bottom: 28px; }
+    .eyebrow {
+      margin: 0 0 8px;
+      color: var(--amber);
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      font-size: 12px;
+    }
+    h1 {
+      margin: 0;
+      font-family: Georgia, "Iowan Old Style", Palatino, serif;
+      font-size: 48px;
+      font-weight: 500;
+      letter-spacing: -0.03em;
+    }
+    .lede { margin: 10px 0 0; color: var(--muted); max-width: 62ch; }
+    main {
+      display: grid;
+      grid-template-columns: minmax(280px, 380px) minmax(0, 1fr);
+      gap: 20px;
+      align-items: start;
+    }
+    .panel {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      box-shadow: var(--shadow);
+    }
+    form { padding: 18px; }
+    .modes { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+    .modes label {
+      border: 1px solid var(--line);
+      background: var(--panel-2);
+      border-radius: 12px;
+      padding: 10px 12px;
+      cursor: pointer;
+    }
+    .modes input { margin-right: 6px; accent-color: var(--amber); }
+    .modes label.active { border-color: var(--amber); }
+    .mode-title { display: block; font-weight: 650; }
+    .mode-copy { display: block; color: var(--muted); font-size: 13px; margin-top: 2px; }
+    .files { display: grid; gap: 10px; margin-top: 14px; }
+    .file {
+      position: relative;
+      display: block;
+      border: 1px dashed var(--line);
+      border-radius: 12px;
+      padding: 12px 14px;
+      background: #16140f;
+      cursor: pointer;
+    }
+    .file:focus-within { border-color: var(--amber); outline: none; }
+    .file input {
+      position: absolute;
+      inset: 0;
+      opacity: 0;
+      cursor: pointer;
+    }
+    .file b { display: block; }
+    .file span { color: var(--muted); font-size: 13px; }
+    .file .chosen { color: var(--text); }
+    fieldset {
+      margin: 16px 0 0;
+      padding: 0;
+      border: 0;
+      display: grid;
+      gap: 8px;
+    }
+    fieldset label { display: flex; gap: 8px; align-items: flex-start; color: var(--muted); }
+    fieldset input { margin-top: 3px; accent-color: var(--amber); }
+    .lag {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      color: var(--muted);
+    }
+    .lag input {
+      width: 88px;
+      background: var(--bg);
+      color: var(--text);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      padding: 8px 10px;
+      font: inherit;
+    }
+    button {
+      margin-top: 16px;
+      width: 100%;
+      border: 0;
+      border-radius: 12px;
+      padding: 12px 16px;
+      background: var(--amber);
+      color: #1a1206;
+      font: 650 16px/1 inherit;
+      cursor: pointer;
+    }
+    button:disabled { opacity: 0.55; cursor: progress; }
+    button:focus-visible, .lag input:focus-visible { outline: 2px solid var(--text); outline-offset: 2px; }
+    .status { min-height: 1.2em; margin: 10px 0 0; color: var(--muted); font-size: 14px; }
+    .status.error { color: var(--danger); }
+    .result { padding: 18px; min-height: 520px; }
+    .empty { color: var(--muted); margin: 8px 0 0; }
+    .meters {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+    .meter {
+      background: var(--panel-2);
+      border-radius: 12px;
+      padding: 12px 14px;
+    }
+    .meter .k { color: var(--muted); font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; }
+    .meter .v {
+      margin-top: 4px;
+      font-family: Georgia, Palatino, serif;
+      font-size: 32px;
+      font-variant-numeric: tabular-nums;
+      letter-spacing: -0.03em;
+    }
+    .meter .s { color: var(--muted); font-size: 13px; }
+    .facts {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 6px 16px;
+      margin: 14px 0;
+      color: var(--muted);
+      font-variant-numeric: tabular-nums;
+    }
+    .facts b { color: var(--text); font-weight: 600; }
+    canvas {
+      width: 100%;
+      height: 280px;
+      background: #100e0c;
+      border-radius: 12px;
+      border: 1px solid var(--line);
+    }
+    .legend { display: flex; gap: 16px; margin: 8px 0 14px; color: var(--muted); font-size: 13px; }
+    .swatch { display: inline-block; width: 10px; height: 10px; border-radius: 99px; margin-right: 6px; }
+    .players { display: grid; gap: 8px; }
+    .player {
+      display: grid;
+      grid-template-columns: 140px 1fr auto;
+      gap: 10px;
+      align-items: center;
+    }
+    audio { width: 100%; height: 36px; }
+    a.download {
+      color: var(--amber);
+      text-decoration: none;
+      font-size: 14px;
+    }
+    a.download:hover { text-decoration: underline; }
+    .notes { margin: 14px 0 0; padding-left: 18px; color: var(--muted); }
+    .hidden { display: none; }
+    @media (max-width: 860px) {
+      main { grid-template-columns: 1fr; }
+      h1 { font-size: 38px; }
+      .meters, .player { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <p class="eyebrow">Neural Amp Modeler</p>
+      <h1>Null test</h1>
+      <p class="lede">Compare two signals by aligning the samples, matching the level, and flipping polarity when needed, then subtracting. What remains is the error. A lower ESR and a quieter residual LUFS mean the signals match more closely.</p>
+    </header>
+    <main>
+      <section class="panel">
+        <form id="form">
+          <div class="modes">
+            <label class="active">
+              <input type="radio" name="mode" value="model_vs_wet" checked>
+              <span class="mode-title">Model and reamp</span>
+              <span class="mode-copy">DI, a reamp WAV, and one .nam</span>
+            </label>
+            <label>
+              <input type="radio" name="mode" value="two_models">
+              <span class="mode-title">Two models</span>
+              <span class="mode-copy">A DI and two .nam files</span>
+            </label>
+          </div>
+          <div class="files">
+            <label class="file">
+              <b>DI</b>
+              <span class="chosen" data-for="di">No mono WAV selected</span>
+              <input type="file" name="di" accept=".wav,audio/wav">
+            </label>
+            <label class="file" data-mode="model_vs_wet">
+              <b>Reamp</b>
+              <span class="chosen" data-for="wet">output.wav, same sample rate as the DI</span>
+              <input type="file" name="wet" accept=".wav,audio/wav">
+            </label>
+            <label class="file" data-mode="model_vs_wet">
+              <b>Model</b>
+              <span class="chosen" data-for="model">.nam file</span>
+              <input type="file" name="model" accept=".nam,application/json">
+            </label>
+            <label class="file hidden" data-mode="two_models">
+              <b>Model A</b>
+              <span class="chosen" data-for="model_a">reference .nam</span>
+              <input type="file" name="model_a" accept=".nam,application/json">
+            </label>
+            <label class="file hidden" data-mode="two_models">
+              <b>Model B</b>
+              <span class="chosen" data-for="model_b">.nam to compare</span>
+              <input type="file" name="model_b" accept=".nam,application/json">
+            </label>
+          </div>
+          <fieldset>
+            <label><input type="checkbox" name="match_gain" checked> Match B's level to A</label>
+            <label><input type="checkbox" name="auto_polarity" checked> Choose polarity automatically</label>
+            <label><input type="checkbox" name="invert"> Invert B</label>
+            <label class="lag">Max alignment lag
+              <input name="max_lag_ms" type="number" min="0" max="2000" step="1" value="100"> ms
+            </label>
+          </fieldset>
+          <button type="submit">Run null test</button>
+          <p class="status" id="status" role="status"></p>
+        </form>
+      </section>
+      <section class="panel result" aria-live="polite">
+        <p class="empty" id="empty">Results show up here. A is the model, or model A. B is the reamp, or model B, after alignment.</p>
+        <div id="out" class="hidden">
+          <div class="meters">
+            <div class="meter">
+              <div class="k">Residual vs A</div>
+              <div class="v" id="residual-db">–</div>
+              <div class="s">10 log10(ESR). More negative means a closer match.</div>
+            </div>
+            <div class="meter">
+              <div class="k">Residual LUFS-I</div>
+              <div class="v" id="residual-lufs">–</div>
+              <div class="s">Integrated loudness after alignment and level matching.</div>
+            </div>
+            <div class="meter">
+              <div class="k">ESR</div>
+              <div class="v" id="esr">–</div>
+              <div class="s">Error energy / energy of A</div>
+            </div>
+            <div class="meter">
+              <div class="k">Correlation</div>
+              <div class="v" id="corr">–</div>
+              <div class="s" id="polarity">before level matching</div>
+            </div>
+          </div>
+          <div class="facts" id="facts"></div>
+          <canvas id="plot" width="1400" height="560"></canvas>
+          <div class="legend">
+            <span><i class="swatch" style="background:var(--amber)"></i>A</span>
+            <span><i class="swatch" style="background:var(--blue)"></i>B after matching</span>
+            <span><i class="swatch" style="background:var(--residual)"></i>Residual</span>
+          </div>
+          <div class="players" id="players"></div>
+          <ul class="notes" id="notes"></ul>
+        </div>
+      </section>
+    </main>
+  </div>
+  <script>
+    const form = document.querySelector("#form");
+    const statusEl = document.querySelector("#status");
+    const emptyEl = document.querySelector("#empty");
+    const outEl = document.querySelector("#out");
+    const canvas = document.querySelector("#plot");
+    const autoPolarity = form.elements.auto_polarity;
+    const matchGain = form.elements.match_gain;
+    const invert = form.elements.invert;
+    let preview = null;
+    let timer = null;
+
+    function mode() {
+      return form.elements.mode.value;
+    }
+
+    function syncMode() {
+      const selected = mode();
+      document.querySelectorAll("[data-mode]").forEach((node) => {
+        node.classList.toggle("hidden", node.dataset.mode !== selected);
+      });
+      document.querySelectorAll(".modes label").forEach((label) => {
+        label.classList.toggle("active", label.querySelector("input").checked);
+      });
+      const lag = form.elements.max_lag_ms;
+      if (!lag.dataset.touched) {
+        lag.value = selected === "two_models" ? "0" : "100";
+      }
+    }
+
+    function syncInvert() {
+      const locked = autoPolarity.checked || matchGain.checked;
+      invert.disabled = locked;
+      if (locked) invert.checked = false;
+    }
+
+    form.elements.mode.forEach((input) => input.addEventListener("change", syncMode));
+    form.elements.max_lag_ms.addEventListener("input", () => {
+      form.elements.max_lag_ms.dataset.touched = "1";
+    });
+    autoPolarity.addEventListener("change", syncInvert);
+    matchGain.addEventListener("change", syncInvert);
+    form.querySelectorAll('input[type="file"]').forEach((input) => {
+      input.addEventListener("change", () => {
+        const target = form.querySelector(`[data-for="${input.name}"]`);
+        const file = input.files[0];
+        target.textContent = file ? file.name : target.dataset.empty || "None selected";
+        target.classList.toggle("chosen", Boolean(file));
+      });
+    });
+
+    function fmtDb(value) {
+      if (value === null || value === undefined) return "−∞";
+      const rounded = Number(value);
+      const sign = rounded > 0 ? "+" : "";
+      return sign + rounded.toFixed(2) + " dB";
+    }
+
+    function fmtDbfs(value) {
+      if (value === null || value === undefined) return "−∞ dBFS";
+      return fmtDb(value).replace(" dB", " dBFS");
+    }
+
+    function fmtLufs(value) {
+      if (value === null || value === undefined) return "−∞ LUFS";
+      const rounded = Number(value);
+      const sign = rounded > 0 ? "+" : "";
+      return sign + rounded.toFixed(1) + " LUFS";
+    }
+
+    function fmtEsr(value) {
+      if (value === 0) return "0";
+      if (value < 0.0001) return value.toExponential(2);
+      return value.toFixed(6);
+    }
+
+    function lagText(data) {
+      const samples = data.lag_samples;
+      const ms = Math.abs(data.lag_ms).toFixed(2);
+      if (samples === 0) return "Sample-aligned (0)";
+      const direction = samples > 0 ? "B is later than A" : "B is earlier than A";
+      return `${direction} by ${Math.abs(samples)} samples (${ms} ms)`;
+    }
+
+    function draw() {
+      if (!preview) return;
+      const ctx = canvas.getContext("2d");
+      const width = canvas.width;
+      const height = canvas.height;
+      ctx.clearRect(0, 0, width, height);
+      const lanes = [
+        [preview.a, "#e6a23c"],
+        [preview.b, "#8eb6d9"],
+        [preview.residual, "#d4725a"],
+      ];
+      let peak = 1e-6;
+      lanes.forEach(([env]) => {
+        env.max.forEach((value) => { peak = Math.max(peak, Math.abs(value)); });
+        env.min.forEach((value) => { peak = Math.max(peak, Math.abs(value)); });
+      });
+      const laneH = height / 3;
+      lanes.forEach(([env, color], index) => {
+        const top = index * laneH;
+        const mid = top + laneH / 2;
+        ctx.strokeStyle = "rgba(244,239,230,0.08)";
+        ctx.beginPath();
+        ctx.moveTo(0, mid);
+        ctx.lineTo(width, mid);
+        ctx.stroke();
+        ctx.fillStyle = color;
+        ctx.globalAlpha = 0.9;
+        ctx.beginPath();
+        const n = env.max.length;
+        for (let i = 0; i < n; i++) {
+          const x = n === 1 ? 0 : (i / (n - 1)) * (width - 1);
+          const y = mid - (env.max[i] / peak) * (laneH * 0.42);
+          if (i === 0) ctx.moveTo(x, y);
+          else ctx.lineTo(x, y);
+        }
+        for (let i = n - 1; i >= 0; i--) {
+          const x = n === 1 ? 0 : (i / (n - 1)) * (width - 1);
+          const y = mid - (env.min[i] / peak) * (laneH * 0.42);
+          ctx.lineTo(x, y);
+        }
+        ctx.closePath();
+        ctx.fill();
+        ctx.globalAlpha = 1;
+      });
+    }
+
+    function show(data) {
+      emptyEl.classList.add("hidden");
+      outEl.classList.remove("hidden");
+      const lufs = data.lufs || {};
+      document.querySelector("#residual-db").textContent = fmtDb(data.residual_db);
+      document.querySelector("#residual-lufs").textContent = fmtLufs(lufs.residual);
+      document.querySelector("#esr").textContent = fmtEsr(data.esr);
+      document.querySelector("#corr").textContent = data.correlation.toFixed(4);
+      document.querySelector("#polarity").textContent =
+        data.polarity === "inverted" ? "B is inverted" : "Same polarity";
+      const seconds = (data.overlap_samples / data.sample_rate).toFixed(2);
+      const rows = [
+        ["Delay", lagText(data)],
+        ["Gain applied to B", data.gain.toFixed(4) + (data.gain_db === null ? "" : ` (${fmtDb(data.gain_db)})`)],
+        ["Overlap", `${seconds} s · ${data.sample_rate} Hz`],
+        ["RMS A", fmtDbfs(data.rms_dbfs.a)],
+        ["RMS B before matching", fmtDbfs(data.rms_dbfs.b)],
+        ["Residual RMS", fmtDbfs(data.rms_dbfs.residual)],
+        ["LUFS A", fmtLufs(lufs.a)],
+        ["LUFS B before matching", fmtLufs(lufs.b)],
+        ["Residual LUFS", fmtLufs(lufs.residual)],
+      ];
+      document.querySelector("#facts").innerHTML = rows
+        .map(([key, value]) => `<div>${key}: <b></b></div>`)
+        .join("");
+      document.querySelectorAll("#facts b").forEach((node, index) => {
+        node.textContent = rows[index][1];
+      });
+      preview = data.preview;
+      draw();
+      const players = [
+        ["A · " + data.reference_name, "a", "a.wav"],
+        ["B · " + data.other_name, "b", "b.wav"],
+        ["Residual", "residual", "residual.wav"],
+      ];
+      const root = document.querySelector("#players");
+      root.replaceChildren();
+      players.forEach(([label, which, filename]) => {
+        const row = document.createElement("div");
+        row.className = "player";
+        const name = document.createElement("div");
+        name.textContent = label;
+        const audio = document.createElement("audio");
+        audio.controls = true;
+        audio.src = `/api/audio/${data.job_id}/${which}`;
+        const link = document.createElement("a");
+        link.className = "download";
+        link.href = audio.src;
+        link.download = filename;
+        link.textContent = "Download";
+        row.append(name, audio, link);
+        root.append(row);
+      });
+      const notes = document.querySelector("#notes");
+      notes.replaceChildren();
+      data.notes.forEach((text) => {
+        const item = document.createElement("li");
+        item.textContent = text;
+        notes.append(item);
+      });
+    }
+
+    form.addEventListener("submit", async (event) => {
+      event.preventDefault();
+      statusEl.classList.remove("error");
+      const selected = mode();
+      const required = selected === "two_models"
+        ? ["di", "model_a", "model_b"]
+        : ["di", "wet", "model"];
+      for (const name of required) {
+        if (!form.elements[name].files[0]) {
+          statusEl.textContent = "Choose every file before running.";
+          statusEl.classList.add("error");
+          return;
+        }
+      }
+      const body = new FormData();
+      body.set("mode", selected);
+      body.set("match_gain", matchGain.checked ? "1" : "0");
+      body.set("auto_polarity", autoPolarity.checked ? "1" : "0");
+      body.set("invert", invert.checked ? "1" : "0");
+      body.set("max_lag_ms", form.elements.max_lag_ms.value || "0");
+      required.forEach((name) => body.set(name, form.elements[name].files[0]));
+      const button = form.querySelector("button");
+      button.disabled = true;
+      let seconds = 0;
+      statusEl.textContent = "Running…";
+      timer = setInterval(() => {
+        seconds += 1;
+        statusEl.textContent = `Running… ${seconds}s`;
+      }, 1000);
+      try {
+        const response = await fetch("/api/null-test", { method: "POST", body });
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error || "Null test failed.");
+        show(data);
+        statusEl.textContent = "Done.";
+      } catch (error) {
+        statusEl.textContent = error.message;
+        statusEl.classList.add("error");
+      } finally {
+        clearInterval(timer);
+        button.disabled = false;
+      }
+    });
+
+    window.addEventListener("resize", draw);
+    syncMode();
+    syncInvert();
+  </script>
+</body>
+</html>

@@ -3,149 +3,366 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>NAM Trainer</title>
+<title>Trainer · NAM</title>
 <style>
   :root {
-    --bg: #f6f6f4; --card: #fff; --text: #1d1d1b; --muted: #6b6b66; --line: #dcdcd6;
-    --accent: #2f6fed; --accent-text: #fff; --ok: #1e8e3e; --bad: #c5221f; --warn: #b06000;
+    --bg: #12110e;
+    --panel: #1c1a16;
+    --panel-2: #24211c;
+    --line: #3c362e;
+    --text: #f4efe6;
+    --muted: #c4b7a4;
+    --amber: #e6a23c;
+    --accent: #e6a23c;
+    --blue: #8eb6d9;
+    --good: #9cbe86;
+    --danger: #e07a68;
+    --warn: #e6a23c;
+    --shadow: 0 18px 50px rgba(0, 0, 0, 0.28);
     --mono: ui-monospace, SFMono-Regular, Menlo, monospace;
   }
-  @media (prefers-color-scheme: dark) {
-    :root {
-      --bg: #151514; --card: #1e1e1c; --text: #ececea; --muted: #9a9a94; --line: #343432;
-      --accent: #6c9bff; --accent-text: #101010; --ok: #5bc77a; --bad: #ff7b72; --warn: #e3b341;
-    }
-  }
   * { box-sizing: border-box; }
-  body { margin: 0; background: var(--bg); color: var(--text);
-         font: 15px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif; }
-  main { max-width: 860px; margin: 0 auto; padding: 24px 16px 64px; }
-  h1 { font-size: 22px; margin: 0 0 4px; }
-  h2 { font-size: 15px; margin: 0 0 12px; }
-  .sub { color: var(--muted); margin: 0 0 20px; }
-  .card { background: var(--card); border: 1px solid var(--line); border-radius: 10px;
-          padding: 16px; margin-bottom: 16px; }
-  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; }
-  label { display: block; font-size: 13px; color: var(--muted); margin-bottom: 4px; }
-  input[type=text], input[type=number], input[type=file], select {
-    width: 100%; padding: 8px 10px; border: 1px solid var(--line); border-radius: 6px;
-    background: var(--bg); color: var(--text); font: inherit; }
-  .check { display: flex; gap: 8px; align-items: center; font-size: 14px; color: var(--text); }
-  .check input { width: auto; }
-  button { font: inherit; padding: 9px 16px; border-radius: 6px; border: 1px solid var(--line);
-           background: var(--card); color: var(--text); cursor: pointer; }
-  button.primary { background: var(--accent); color: var(--accent-text); border-color: var(--accent); }
-  button.danger { color: var(--bad); }
-  button:disabled { opacity: .5; cursor: not-allowed; }
-  .row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
-  .pill { display: inline-block; padding: 2px 10px; border-radius: 999px; font-size: 12px;
-          border: 1px solid var(--line); }
-  .pill.running { color: var(--accent); border-color: var(--accent); }
-  .pill.done { color: var(--ok); border-color: var(--ok); }
-  .pill.failed, .pill.cancelled { color: var(--bad); border-color: var(--bad); }
-  .bar { height: 8px; background: var(--line); border-radius: 4px; overflow: hidden; margin: 10px 0; }
-  .bar > div { height: 100%; background: var(--accent); width: 0; transition: width .4s; }
-  .muted { color: var(--muted); font-size: 13px; }
+  [hidden] { display: none !important; }
+  body {
+    margin: 0;
+    min-height: 100vh;
+    background:
+      radial-gradient(1200px 500px at 10% -10%, rgba(230, 162, 60, 0.12), transparent 55%),
+      var(--bg);
+    color: var(--text);
+    font: 16px/1.45 "Segoe UI", "Helvetica Neue", sans-serif;
+  }
+  .wrap {
+    width: min(1120px, calc(100% - 32px));
+    margin: 0 auto;
+    padding: 36px 0 64px;
+  }
+  header { max-width: 680px; margin-bottom: 28px; }
+  .eyebrow {
+    margin: 0 0 8px;
+    color: var(--amber);
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    font-size: 12px;
+  }
+  h1 {
+    margin: 0;
+    font-family: Georgia, "Iowan Old Style", Palatino, serif;
+    font-size: 48px;
+    font-weight: 500;
+    letter-spacing: -0.03em;
+  }
+  .lede, .empty { margin: 10px 0 0; color: var(--muted); max-width: 62ch; }
+  main {
+    display: grid;
+    grid-template-columns: minmax(300px, 440px) minmax(0, 1fr);
+    gap: 20px;
+    align-items: start;
+  }
+  .panel {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 16px;
+    box-shadow: var(--shadow);
+    padding: 18px;
+  }
+  .result { min-height: 520px; }
+  h2 {
+    margin: 18px 0 12px;
+    color: var(--amber);
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    font-size: 12px;
+    font-weight: 650;
+  }
+  h2:first-child, .job-head h2, .history h2 { margin-top: 0; }
+  .files { display: grid; gap: 10px; }
+  .file {
+    position: relative;
+    display: block;
+    border: 1px dashed var(--line);
+    border-radius: 12px;
+    padding: 12px 14px;
+    background: #16140f;
+    cursor: pointer;
+  }
+  .file:focus-within { border-color: var(--amber); outline: none; }
+  .file input {
+    position: absolute;
+    inset: 0;
+    opacity: 0;
+    cursor: pointer;
+  }
+  .file b { display: block; }
+  .file span { color: var(--muted); font-size: 13px; }
+  .file .chosen { color: var(--text); }
+  button.link {
+    margin-top: 6px;
+    border: 0;
+    background: none;
+    color: var(--amber);
+    padding: 0;
+    font: inherit;
+    font-size: 13px;
+    cursor: pointer;
+  }
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .wide { grid-column: 1 / -1; }
+  .field { display: block; color: var(--muted); font-size: 13px; }
+  input[type="text"], input[type="number"], select {
+    width: 100%;
+    margin-top: 4px;
+    background: var(--bg);
+    color: var(--text);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 8px 10px;
+    font: inherit;
+  }
+  fieldset {
+    margin: 14px 0 0;
+    padding: 0;
+    border: 0;
+  }
+  fieldset label { display: flex; gap: 8px; align-items: flex-start; color: var(--muted); }
+  fieldset input { margin-top: 3px; accent-color: var(--amber); }
+  button.primary, button.stop {
+    display: block;
+    width: 100%;
+    border-radius: 12px;
+    padding: 12px 16px;
+    font: 650 16px/1 inherit;
+    cursor: pointer;
+  }
+  button.primary {
+    margin-top: 16px;
+    border: 0;
+    background: var(--amber);
+    color: #1a1206;
+  }
+  button.stop {
+    margin-top: 8px;
+    background: transparent;
+    color: var(--danger);
+    border: 1px solid var(--danger);
+  }
+  button:disabled { opacity: 0.55; cursor: not-allowed; }
+  button:focus-visible, input:focus-visible, select:focus-visible {
+    outline: 2px solid var(--text);
+    outline-offset: 2px;
+  }
+  .status { min-height: 1.2em; margin: 10px 0 0; color: var(--muted); font-size: 14px; }
+  .status.error, .msg.err { color: var(--danger); }
   .msg { color: var(--warn); font-size: 14px; margin-top: 8px; }
-  .msg.err { color: var(--bad); }
-  pre { background: var(--bg); border: 1px solid var(--line); border-radius: 6px; padding: 10px;
-        font: 12px/1.45 var(--mono); max-height: 280px; overflow: auto; margin: 10px 0 0;
-        white-space: pre-wrap; word-break: break-all; }
-  table { width: 100%; border-collapse: collapse; font-size: 14px; }
-  th, td { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--line); }
-  th { color: var(--muted); font-weight: 500; font-size: 12px; }
+  .muted { color: var(--muted); font-size: 13px; }
+  .job-head { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-bottom: 12px; }
+  .job-head h2 { margin-bottom: 0; }
+  .pill {
+    display: inline-block;
+    padding: 2px 10px;
+    border-radius: 999px;
+    font-size: 12px;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    border: 1px solid var(--line);
+  }
+  .pill.running, .pill.queued { color: var(--amber); border-color: var(--amber); }
+  .pill.done { color: var(--good); border-color: var(--good); }
+  .pill.failed, .pill.cancelled { color: var(--danger); border-color: var(--danger); }
+  .meters { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .meter { background: var(--panel-2); border-radius: 12px; padding: 12px 14px; }
+  .meter .k {
+    color: var(--muted);
+    font-size: 12px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+  .meter .v {
+    margin-top: 4px;
+    font-family: Georgia, Palatino, serif;
+    font-size: 32px;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -0.03em;
+  }
+  .meter .s { color: var(--muted); font-size: 13px; }
+  .bar {
+    height: 8px;
+    background: #100e0c;
+    border: 1px solid var(--line);
+    border-radius: 99px;
+    overflow: hidden;
+    margin: 14px 0 8px;
+  }
+  .bar > div { height: 100%; width: 0; background: var(--amber); transition: width .4s; }
+  #chart {
+    width: 100%;
+    height: 160px;
+    display: block;
+    margin-top: 14px;
+    background: #100e0c;
+    border-radius: 12px;
+    border: 1px solid var(--line);
+  }
+  table { width: 100%; border-collapse: collapse; font-size: 14px; margin-top: 14px; }
+  th, td { text-align: left; padding: 8px 6px; border-bottom: 1px solid var(--line); }
+  th {
+    color: var(--muted);
+    font-weight: 500;
+    font-size: 12px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
   td.num { font-variant-numeric: tabular-nums; }
-  svg { width: 100%; height: 140px; display: block; }
-  a { color: var(--accent); }
-  button.link { border: 0; background: none; color: var(--accent); padding: 0 2px; font-size: 13px; }
-  button.small { padding: 3px 10px; font-size: 13px; }
+  a { color: var(--amber); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  .history { margin-top: 22px; padding-top: 18px; border-top: 1px solid var(--line); }
+  .row { display: flex; gap: 10px; flex-wrap: wrap; margin: 12px 0; }
+  .row button, button.small {
+    border: 1px solid var(--line);
+    background: var(--panel-2);
+    color: var(--text);
+    border-radius: 10px;
+    padding: 8px 12px;
+    font: inherit;
+    font-size: 13px;
+    cursor: pointer;
+  }
+  button.small { padding: 4px 10px; }
+  .row button.danger, button.small.danger {
+    color: var(--danger);
+    border-color: var(--danger);
+    background: transparent;
+  }
   td.actions { white-space: nowrap; }
+  pre {
+    background: #100e0c;
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    padding: 12px;
+    font: 12px/1.45 var(--mono);
+    max-height: 280px;
+    overflow: auto;
+    margin: 14px 0 0;
+    white-space: pre-wrap;
+    word-break: break-word;
+    color: var(--muted);
+  }
+  @media (max-width: 860px) {
+    main, .meters, .grid { grid-template-columns: 1fr; }
+    h1 { font-size: 38px; }
+    .wide { grid-column: auto; }
+  }
 </style>
 </head>
 <body>
-<main>
-  <h1>NAM Trainer</h1>
-  <p class="sub">A2 (packed WaveNet) training with the simplified trainer. One job at a time.</p>
-
-  <section class="card">
-    <h2>1. Recordings</h2>
-    <div class="grid">
-      <div>
-        <label for="f-input">Input (the DI / source file you reamped)</label>
-        <input type="file" id="f-input" accept=".wav,audio/wav">
-        <div class="muted"><span id="u-input"></span> <button class="link" id="rm-input" hidden>Remove</button></div>
+<div class="wrap">
+  <header>
+    <p class="eyebrow">Neural Amp Modeler</p>
+    <h1>Trainer</h1>
+    <p class="lede">Train an A2 packed WaveNet from a DI and the reamp of that same DI. One job runs at a time.</p>
+  </header>
+  <main>
+    <section class="panel">
+      <h2>Recordings</h2>
+      <div class="files">
+        <div>
+          <label class="file">
+            <b>Input</b>
+            <span id="u-input">No WAV selected</span>
+            <input type="file" id="f-input" accept=".wav,audio/wav">
+          </label>
+          <button type="button" class="link" id="rm-input" hidden>Remove</button>
+        </div>
+        <div>
+          <label class="file">
+            <b>Output</b>
+            <span id="u-output">No WAV selected</span>
+            <input type="file" id="f-output" accept=".wav,audio/wav">
+          </label>
+          <button type="button" class="link" id="rm-output" hidden>Remove</button>
+        </div>
       </div>
-      <div>
-        <label for="f-output">Output (the recording of your gear)</label>
-        <input type="file" id="f-output" accept=".wav,audio/wav">
-        <div class="muted"><span id="u-output"></span> <button class="link" id="rm-output" hidden>Remove</button></div>
+      <div class="bar" id="upbar" hidden><div></div></div>
+      <div class="msg" id="upmsg"></div>
+
+      <h2>Settings</h2>
+      <div class="grid">
+        <label class="field" for="epochs">Epochs<input type="number" id="epochs" value="100" min="1" max="1000"></label>
+        <label class="field" for="latency">Latency, samples<input type="number" id="latency" placeholder="auto"></label>
+        <label class="field" for="batch">Batch size<input type="number" id="batch" value="16" min="1" max="256"></label>
+        <label class="field" for="seed">Seed<input type="number" id="seed" value="0"></label>
+        <label class="field wide" for="name">Model name<input type="text" id="name" placeholder="model" maxlength="80"></label>
+        <label class="field wide" for="by">Modeled by<input type="text" id="by" maxlength="80"></label>
+        <label class="field wide" for="device">Device
+          <select id="device"><option value="auto">Auto (GPU if available)</option><option value="cpu">CPU only</option></select>
+        </label>
       </div>
-    </div>
-    <div class="bar" id="upbar" hidden><div></div></div>
-    <div class="msg" id="upmsg"></div>
-  </section>
+      <p class="status" id="devinfo"></p>
+      <fieldset>
+        <label><input type="checkbox" id="ignore"> Ignore data checks. Only do this if you accept the risk.</label>
+      </fieldset>
+      <button type="button" class="primary" id="start">Start training</button>
+      <button type="button" class="stop" id="stop" hidden>Stop and export the best so far</button>
+      <div class="msg err" id="startmsg"></div>
+    </section>
 
-  <section class="card">
-    <h2>2. Settings</h2>
-    <div class="grid">
-      <div><label for="epochs">Epochs</label><input type="number" id="epochs" value="100" min="1" max="1000"></div>
-      <div><label for="latency">Latency (samples, empty = auto)</label><input type="number" id="latency" placeholder="auto"></div>
-      <div><label for="batch">Batch size</label><input type="number" id="batch" value="16" min="1" max="256"></div>
-      <div><label for="seed">Seed</label><input type="number" id="seed" value="0"></div>
-      <div><label for="name">Model name</label><input type="text" id="name" placeholder="model" maxlength="80"></div>
-      <div><label for="by">Modeled by</label><input type="text" id="by" maxlength="80"></div>
-      <div>
-        <label for="device">Device</label>
-        <select id="device"><option value="auto">Auto (GPU if available)</option><option value="cpu">CPU only</option></select>
+    <section class="panel result" aria-live="polite">
+      <p class="empty" id="empty">No job is running. Progress, validation ESR, and the log show up here.</p>
+      <div id="jobcard" hidden>
+        <div class="job-head">
+          <h2>Job</h2>
+          <span class="muted" id="jobid"></span>
+          <span class="pill" id="state"></span>
+        </div>
+        <div class="meters">
+          <div class="meter">
+            <div class="k">Validation ESR</div>
+            <div class="v" id="esr-now">–</div>
+            <div class="s">Latest epoch. Lower is closer.</div>
+          </div>
+          <div class="meter">
+            <div class="k">Epochs</div>
+            <div class="v" id="epoch-now">–</div>
+            <div class="s" id="epoch-hint">of the planned run</div>
+          </div>
+        </div>
+        <div class="bar"><div id="bar"></div></div>
+        <div class="muted" id="progress"></div>
+        <div id="jobmsg" class="msg err"></div>
+        <svg id="chart" viewBox="0 0 600 140" preserveAspectRatio="none" aria-label="Validation ESR by epoch"></svg>
+        <table>
+          <thead><tr><th>Epoch</th><th>Validation ESR</th></tr></thead>
+          <tbody id="esr"></tbody>
+        </table>
+        <div class="row"><a id="dl" hidden>Download model</a></div>
+        <pre id="log"></pre>
       </div>
-    </div>
-    <div class="muted" id="devinfo" style="margin-top:8px"></div>
-    <p class="check"><input type="checkbox" id="ignore"><label for="ignore" style="margin:0;color:inherit">Ignore data checks (at your own risk)</label></p>
-    <div class="row">
-      <button class="primary" id="start">Start training</button>
-      <button class="danger" id="stop" hidden>Stop and export best so far</button>
-    </div>
-    <div class="msg err" id="startmsg"></div>
-  </section>
 
-  <section class="card" id="jobcard" hidden>
-    <h2>3. Job <span class="muted" id="jobid"></span> <span class="pill" id="state"></span></h2>
-    <div class="bar"><div id="bar"></div></div>
-    <div class="muted" id="progress"></div>
-    <div id="jobmsg" class="msg err"></div>
-    <svg id="chart" viewBox="0 0 600 140" preserveAspectRatio="none" aria-label="Validation ESR by epoch"></svg>
-    <table>
-      <thead><tr><th>Epoch</th><th>Validation ESR</th></tr></thead>
-      <tbody id="esr"></tbody>
-    </table>
-    <div class="row" style="margin-top:12px"><a id="dl" hidden>Download model</a></div>
-    <pre id="log"></pre>
-  </section>
-
-  <section class="card" id="histcard" hidden>
-    <h2>History and storage</h2>
-    <p class="muted" id="storage"></p>
-    <div class="row" style="margin-bottom:12px">
-      <button id="clean-all">Clean job files</button>
-      <button class="danger" id="delete-all">Delete all finished jobs</button>
-    </div>
-    <div class="muted" style="margin-bottom:8px">
-      "Clean" removes a job's copied recordings and checkpoints and keeps its .nam, log and ESR.
-      "Delete" removes the whole job, including its .nam.
-    </div>
-    <div id="managemsg" class="msg"></div>
-    <div style="overflow-x:auto">
-    <table><thead><tr><th>Job</th><th>State</th><th>Epochs</th><th>ESR</th><th>Model</th><th>Temp files</th><th></th></tr></thead>
-    <tbody id="hist"></tbody></table>
-    </div>
-  </section>
-</main>
+      <div id="histcard" class="history" hidden>
+        <h2>History and storage</h2>
+        <p class="muted" id="storage"></p>
+        <div class="row">
+          <button type="button" id="clean-all">Clean job files</button>
+          <button type="button" class="danger" id="delete-all">Delete all finished jobs</button>
+        </div>
+        <p class="muted">Clean removes a job's copied recordings and checkpoints and keeps its .nam, log, and ESR. Delete removes the whole job, including its .nam.</p>
+        <div id="managemsg" class="msg"></div>
+        <div style="overflow-x:auto">
+          <table>
+            <thead><tr><th>Job</th><th>State</th><th>Epochs</th><th>ESR</th><th>Model</th><th>Temp files</th><th></th></tr></thead>
+            <tbody id="hist"></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+  </main>
+</div>
 
 <script>
 const $ = (id) => document.getElementById(id);
 let busy = false;
 
-function fmtSize(n) { return n == null ? "no file yet" : (n / 1048576).toFixed(1) + " MB"; }
+function fmtSize(n) { return n == null ? "No WAV selected" : (n / 1048576).toFixed(1) + " MB"; }
 
 async function api(path, opts) {
   const r = await fetch(path, opts);
@@ -181,6 +398,7 @@ for (const kind of ["input", "output"]) {
     catch (err) { $("upmsg").textContent = `Upload failed: ${err.message}`; $("upmsg").className = "msg err"; }
     busy = false;
     $("upbar").hidden = true;
+    e.target.value = "";
     refresh();
   });
 }
@@ -245,8 +463,13 @@ function fmtDuration(sec) {
 
 function render(s) {
   const up = s.uploads;
-  $("u-input").textContent = up.input.name ? `${up.input.name} (${fmtSize(up.input.size)})` : fmtSize(null);
-  $("u-output").textContent = up.output.name ? `${up.output.name} (${fmtSize(up.output.size)})` : fmtSize(null);
+  for (const kind of ["input", "output"]) {
+    const slot = up[kind];
+    const node = $("u-" + kind);
+    node.textContent = slot.name ? `${slot.name} (${fmtSize(slot.size)})` : "No WAV selected";
+    node.classList.toggle("chosen", Boolean(slot.name));
+    $("rm-" + kind).hidden = slot.size == null || (s.job && (s.job.state === "running" || s.job.state === "queued"));
+  }
 
   renderDevices(s.devices);
 
@@ -256,6 +479,7 @@ function render(s) {
   $("stop").hidden = !running;
   for (const id of ["f-input", "f-output"]) $(id).disabled = running;
 
+  $("empty").hidden = Boolean(job);
   $("jobcard").hidden = !job;
   if (job) {
     $("jobid").textContent = job.id + " · " + (job.params.device || "auto");
@@ -264,6 +488,11 @@ function render(s) {
     $("jobmsg").textContent = job.message || "";
     const total = job.params.epochs;
     const hist = Object.entries(job.esr_history || {}).map(([e, v]) => [Number(e), v]);
+    const latest = hist.length ? hist[hist.length - 1][1] : job.validation_esr;
+    $("esr-now").textContent = latest == null ? "–" : Number(latest).toFixed(4);
+    const doneEpochs = hist.length || (job.state === "done" ? total : 0);
+    $("epoch-now").textContent = doneEpochs ? String(doneEpochs) : "–";
+    $("epoch-hint").textContent = total ? `of ${total} epochs` : "Epochs";
     let pct = job.state === "done" ? 100 : 0;
     if (running && hist.length) pct = 100 * hist.length / total;
     $("bar").style.width = Math.min(pct, 100) + "%";
@@ -286,8 +515,6 @@ function render(s) {
     if (atBottom) log.scrollTop = log.scrollHeight;
   }
 
-  for (const kind of ["input", "output"]) $("rm-" + kind).hidden = up[kind].size == null || running;
-
   $("histcard").hidden = !s.history.length && !up.input.size && !up.output.size;
   const st = s.storage;
   $("storage").textContent = `Uploads: ${fmtSize(st.uploads)} · disk free ${fmtGB(st.free)} of ${fmtGB(st.total)}`;
@@ -298,12 +525,12 @@ function render(s) {
     <td>${j.id}</td><td><span class="pill ${j.state}">${j.state}</span></td>
     <td class="num">${j.params.epochs ?? ""}</td>
     <td class="num">${j.validation_esr != null ? j.validation_esr.toFixed(4) : ""}</td>
-    <td class="num">${j.has_model ? fmtSize(j.sizes.model) : "-"}</td>
-    <td class="num">${temp ? fmtSize(temp) : "-"}</td>
+    <td class="num">${j.has_model ? fmtSize(j.sizes.model) : "–"}</td>
+    <td class="num">${temp ? fmtSize(temp) : "–"}</td>
     <td class="actions">
       ${j.has_model ? `<a href="/api/download?job=${j.id}">Download</a>` : ""}
-      ${live ? "" : `<button class="small" data-act="clean" data-job="${j.id}" ${temp ? "" : "disabled"}>Clean</button>
-      <button class="small danger" data-act="delete" data-job="${j.id}">Delete</button>`}
+      ${live ? "" : `<button type="button" class="small" data-act="clean" data-job="${j.id}" ${temp ? "" : "disabled"}>Clean</button>
+      <button type="button" class="small danger" data-act="delete" data-job="${j.id}">Delete</button>`}
     </td></tr>`;
   }).join("");
 }

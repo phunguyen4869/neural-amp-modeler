@@ -53,6 +53,13 @@ The "History and storage" panel removes uploaded recordings, cleans a
 job's copied recordings and checkpoints (keeping its `.nam`), or deletes whole jobs.
 On CPU, 100 epochs takes hours.
 
+The null-test page compares a model render with a reamp, or two models on the same DI:
+```bash
+docker compose up -d null-test
+```
+Open `http://<host>:8765`. It has no authentication either. For GPU inference, start it with
+`docker compose -f docker-compose.yml -f docker-compose.gpu.yml up -d null-test`.
+
 To run the tests: `docker compose run --rm test`.
 
 ## Documentation

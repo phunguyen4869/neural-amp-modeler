@@ -1,2 +1,3 @@
 include nam/models/_resources/loudness_input.wav
 include nam/train/_resources/config_model_packed.json
+include nam/null_test/static/index.html
