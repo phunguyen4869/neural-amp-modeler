@@ -27,6 +27,7 @@ import numpy as _np
 
 from nam.null_test.core import compare_model_to_wet as _compare_model_to_wet
 from nam.null_test.core import compare_models as _compare_models
+from nam.null_test.core import compare_wavs as _compare_wavs
 from nam.null_test.core import load_nam as _load_nam
 from nam.null_test.core import load_wav as _load_wav
 
@@ -198,6 +199,15 @@ def _run_request(fields: dict, files: dict):
             f"The alignment window must be from 0 to {_MAX_LAG_MS:.0f} ms."
         )
 
+    if mode == "two_wavs":
+        return _compare_uploaded_wavs(
+            files,
+            match_gain=match_gain,
+            auto_polarity=auto_polarity,
+            invert=invert and not auto_polarity and not match_gain,
+            max_lag_ms=max_lag_ms,
+        )
+
     di_part = _require_file(files, "di", "DI file")
     di_path = _as_temp(di_part, ".wav")
     try:
@@ -252,9 +262,45 @@ def _run_request(fields: dict, files: dict):
                 path_a.unlink(missing_ok=True)
                 if path_b is not None:
                     path_b.unlink(missing_ok=True)
-        raise ValueError("Choose a mode: a model against a reamp, or two models.")
+        raise ValueError(
+            "Choose a mode: a model against a reamp, two models, or two WAVs."
+        )
     finally:
         di_path.unlink(missing_ok=True)
+
+
+def _compare_uploaded_wavs(
+    files: dict,
+    *,
+    match_gain: bool,
+    auto_polarity: bool,
+    invert: bool,
+    max_lag_ms: float,
+):
+    part_a = _require_file(files, "wav_a", "WAV A")
+    part_b = _require_file(files, "wav_b", "WAV B")
+    path_a = _as_temp(part_a, ".wav")
+    path_b = None
+    try:
+        path_b = _as_temp(part_b, ".wav")
+        wav_a, rate_a = _load_wav(path_a, name=part_a.filename)
+        wav_b, rate_b = _load_wav(path_b, name=part_b.filename)
+        return _compare_wavs(
+            wav_a,
+            rate_a,
+            wav_b,
+            rate_b,
+            name_a=part_a.filename or "WAV A",
+            name_b=part_b.filename or "WAV B",
+            match_gain=match_gain,
+            auto_polarity=auto_polarity,
+            invert=invert,
+            max_lag_samples=int(round(max_lag_ms / 1000.0 * rate_a)),
+        )
+    finally:
+        path_a.unlink(missing_ok=True)
+        if path_b is not None:
+            path_b.unlink(missing_ok=True)
 
 
 def _flag(fields: dict, name: str, default: bool) -> bool:

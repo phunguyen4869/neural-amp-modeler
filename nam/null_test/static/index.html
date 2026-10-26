@@ -64,7 +64,7 @@
       box-shadow: var(--shadow);
     }
     form { padding: 18px; }
-    .modes { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+    .modes { display: grid; gap: 8px; }
     .modes label {
       border: 1px solid var(--line);
       background: var(--panel-2);
@@ -95,7 +95,9 @@
     }
     .file b { display: block; }
     .file span { color: var(--muted); font-size: 13px; }
-    .file .chosen { color: var(--text); }
+    .file .hint { display: block; margin-top: 3px; line-height: 1.35; }
+    .file .hint.hidden { display: none; }
+    .file .chosen { display: block; margin-top: 6px; color: var(--text); }
     fieldset {
       margin: 16px 0 0;
       padding: 0;
@@ -211,39 +213,62 @@
             <label class="active">
               <input type="radio" name="mode" value="model_vs_wet" checked>
               <span class="mode-title">Model and reamp</span>
-              <span class="mode-copy">DI, a reamp WAV, and one .nam</span>
+              <span class="mode-copy">A is model(DI). B is the reamp.</span>
             </label>
             <label>
               <input type="radio" name="mode" value="two_models">
               <span class="mode-title">Two models</span>
-              <span class="mode-copy">A DI and two .nam files</span>
+              <span class="mode-copy">A and B are two models rendered on the same DI.</span>
+            </label>
+            <label>
+              <input type="radio" name="mode" value="two_wavs">
+              <span class="mode-title">Two WAVs</span>
+              <span class="mode-copy">A and B are the two recordings. No .nam file.</span>
             </label>
           </div>
           <div class="files">
-            <label class="file">
+            <label class="file" data-mode="model_vs_wet two_models">
               <b>DI</b>
-              <span class="chosen" data-for="di">No mono WAV selected</span>
+              <span class="hint" data-mode="model_vs_wet">Dry signal sent into the model. A is that render. Putting this same file in Reamp compares model(wav) with wav, not the file with itself.</span>
+              <span class="hint hidden" data-mode="two_models">Dry signal rendered through both models. The null compares those two outputs. This file is not A or B.</span>
+              <span class="chosen" data-for="di" data-empty="No mono WAV selected">No mono WAV selected</span>
               <input type="file" name="di" accept=".wav,audio/wav">
             </label>
             <label class="file" data-mode="model_vs_wet">
               <b>Reamp</b>
-              <span class="chosen" data-for="wet">output.wav, same sample rate as the DI</span>
+              <span class="hint">Signal B, the recording subtracted from the model output. Mono, and the same sample rate as the DI. Use the reamp of this DI.</span>
+              <span class="chosen" data-for="wet" data-empty="Mono WAV, same sample rate as the DI">Mono WAV, same sample rate as the DI</span>
               <input type="file" name="wet" accept=".wav,audio/wav">
             </label>
             <label class="file" data-mode="model_vs_wet">
               <b>Model</b>
+              <span class="hint">.nam rendered on the DI. That output is signal A. An A2 file uses its full submodel.</span>
               <span class="chosen" data-for="model" data-empty=".nam file, A1 or A2">.nam file, A1 or A2</span>
               <input type="file" name="model" accept=".nam,application/json">
             </label>
             <label class="file hidden" data-mode="two_models">
               <b>Model A</b>
-              <span class="chosen" data-for="model_a">reference .nam</span>
+              <span class="hint">Rendered on the DI. That output is signal A, the reference the residual is measured against.</span>
+              <span class="chosen" data-for="model_a" data-empty=".nam file, A1 or A2">.nam file, A1 or A2</span>
               <input type="file" name="model_a" accept=".nam,application/json">
             </label>
             <label class="file hidden" data-mode="two_models">
               <b>Model B</b>
-              <span class="chosen" data-for="model_b">.nam to compare</span>
+              <span class="hint">Rendered on the same DI. That output is signal B, aligned and subtracted from A.</span>
+              <span class="chosen" data-for="model_b" data-empty=".nam file, A1 or A2">.nam file, A1 or A2</span>
               <input type="file" name="model_b" accept=".nam,application/json">
+            </label>
+            <label class="file hidden" data-mode="two_wavs">
+              <b>WAV A</b>
+              <span class="hint">Signal A, the reference. The residual is measured against this recording. No model is rendered.</span>
+              <span class="chosen" data-for="wav_a" data-empty="Mono WAV">Mono WAV</span>
+              <input type="file" name="wav_a" accept=".wav,audio/wav">
+            </label>
+            <label class="file hidden" data-mode="two_wavs">
+              <b>WAV B</b>
+              <span class="hint">Signal B, aligned and subtracted from A. Mono, and the same sample rate as WAV A.</span>
+              <span class="chosen" data-for="wav_b" data-empty="Mono WAV, same sample rate as WAV A">Mono WAV, same sample rate as WAV A</span>
+              <input type="file" name="wav_b" accept=".wav,audio/wav">
             </label>
           </div>
           <fieldset>
@@ -259,7 +284,7 @@
         </form>
       </section>
       <section class="panel result" aria-live="polite">
-        <p class="empty" id="empty">Results show up here. A is the model, or model A. B is the reamp, or model B, after alignment.</p>
+        <p class="empty" id="empty">Results show up here. A is the model render or WAV A. B is the reamp, the second model, or WAV B, after alignment.</p>
         <div id="out" class="hidden">
           <div class="meters">
             <div class="meter">
@@ -312,10 +337,16 @@
       return form.elements.mode.value;
     }
 
+    function showsInMode(node, selected) {
+      const raw = node.dataset.mode;
+      if (!raw) return true;
+      return raw.split(/\s+/).includes(selected);
+    }
+
     function syncMode() {
       const selected = mode();
       document.querySelectorAll("[data-mode]").forEach((node) => {
-        node.classList.toggle("hidden", node.dataset.mode !== selected);
+        node.classList.toggle("hidden", !showsInMode(node, selected));
       });
       document.querySelectorAll(".modes label").forEach((label) => {
         label.classList.toggle("active", label.querySelector("input").checked);
@@ -389,7 +420,7 @@
         const file = input.files[0];
         target.textContent = file ? file.name : target.dataset.empty || "None selected";
         target.classList.toggle("chosen", Boolean(file));
-        if (input.name !== "di" && input.name !== "wet") return;
+        if (!["di", "wet", "wav_a", "wav_b"].includes(input.name)) return;
         const message = await monoWavError(file);
         if (ticket !== wavCheck) return;
         if (message) {
@@ -547,13 +578,14 @@
       event.preventDefault();
       statusEl.classList.remove("error");
       const selected = mode();
-      const required = selected === "two_models"
-        ? ["di", "model_a", "model_b"]
-        : ["di", "wet", "model"];
+      const required = {
+        two_models: ["di", "model_a", "model_b"],
+        two_wavs: ["wav_a", "wav_b"],
+      }[selected] || ["di", "wet", "model"];
       for (const name of required) {
         const file = form.elements[name].files[0];
         if (!file) continue;
-        if (name !== "di" && name !== "wet") continue;
+        if (!["di", "wet", "wav_a", "wav_b"].includes(name)) continue;
         const message = await monoWavError(file);
         if (message) {
           statusEl.textContent = message;

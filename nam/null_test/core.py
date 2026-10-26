@@ -325,6 +325,39 @@ def compare_models(
     )
 
 
+def compare_wavs(
+    wav_a: _np.ndarray,
+    rate_a: int,
+    wav_b: _np.ndarray,
+    rate_b: int,
+    *,
+    name_a: str = "WAV A",
+    name_b: str = "WAV B",
+    match_gain: bool,
+    auto_polarity: bool,
+    invert: bool,
+    max_lag_samples: int,
+) -> NullResult:
+    """Null two recordings. Neither signal is passed through a model."""
+    if rate_b != rate_a:
+        raise ValueError(
+            f"WAV A is {rate_a} Hz but WAV B is {rate_b} Hz. "
+            "The two WAV files must share a sample rate."
+        )
+    return _finish(
+        wav_a,
+        wav_b,
+        sample_rate=rate_a,
+        reference_name=name_a,
+        other_name=name_b,
+        notes=["No model is rendered. A and B are the uploaded recordings."],
+        match_gain=match_gain,
+        auto_polarity=auto_polarity,
+        invert=invert,
+        max_lag_samples=max_lag_samples,
+    )
+
+
 def _finish(
     reference: _np.ndarray,
     other: _np.ndarray,

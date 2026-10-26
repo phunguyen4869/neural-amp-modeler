@@ -158,6 +158,69 @@ def test_identity_model_nulls_a_delayed_reamp():
     assert result.residual_db is None or result.residual_db < -80
 
 
+def test_two_wavs_null_without_a_model():
+    wav = _noise(8000, seed=3) * 0.2
+    delay = 40
+    other = _np.concatenate([_np.zeros(delay), wav[:-delay]]) * -0.5
+    result = _core.compare_wavs(
+        wav,
+        48_000,
+        other,
+        48_000,
+        name_a="a.wav",
+        name_b="b.wav",
+        match_gain=True,
+        auto_polarity=True,
+        invert=False,
+        max_lag_samples=100,
+    )
+    assert result.lag_samples == delay
+    assert result.esr < 1e-8
+    assert result.polarity == "inverted"
+    assert result.reference_name == "a.wav"
+    assert result.other_name == "b.wav"
+    assert any("No model is rendered." in note for note in result.notes)
+
+
+def test_two_wavs_reject_a_different_sample_rate():
+    wav = _noise(1000, seed=4) * 0.2
+    with _pytest.raises(ValueError, match="share a sample rate"):
+        _core.compare_wavs(
+            wav,
+            48_000,
+            wav,
+            44_100,
+            match_gain=True,
+            auto_polarity=True,
+            invert=False,
+            max_lag_samples=0,
+        )
+
+
+def test_two_wavs_request_does_not_need_a_model(tmp_path: _Path):
+    wav = (_noise(4000, seed=11) * 0.2).astype(_np.float64)
+    path = tmp_path / "same.wav"
+    _np_to_wav(wav, path, rate=48_000, sampwidth=2)
+    data = path.read_bytes()
+    result = _server._run_request(
+        {
+            "mode": "two_wavs",
+            "match_gain": "1",
+            "auto_polarity": "1",
+            "invert": "0",
+            "max_lag_ms": "20",
+        },
+        {
+            "wav_a": _server._FormPart("same.wav", data),
+            "wav_b": _server._FormPart("same.wav", data),
+        },
+    )
+    assert result.esr < 1e-6
+    assert result.lag_samples == 0
+    assert result.reference_name == "same.wav"
+    assert result.other_name == "same.wav"
+
+
 def test_two_identity_models_null():
     di = _noise(2000, seed=8) * 0.15
     result = _core.compare_models(
@@ -430,6 +493,10 @@ def test_page_nulls_an_identity_model(tmp_path: _Path):
         html = page.read().decode("utf-8")
         assert "Null test" in html
         assert "Run null test" in html
+        assert "A is model(DI). B is the reamp." in html
+        assert "compares model(wav) with wav" in html
+        assert "two models rendered on the same DI" in html
+        assert "No .nam file." in html
         request = _request.Request(
             f"http://127.0.0.1:{port}/api/null-test",
             data=body,

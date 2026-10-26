@@ -53,7 +53,7 @@ The "History and storage" panel removes uploaded recordings, cleans a
 job's copied recordings and checkpoints (keeping its `.nam`), or deletes whole jobs.
 On CPU, 100 epochs takes hours.
 
-The null-test page compares a model render with a reamp, or two models on the same DI:
+The null-test page compares a model render with a reamp, two models on the same DI, or two WAV recordings:
 ```bash
 docker compose up -d null-test
 ```
