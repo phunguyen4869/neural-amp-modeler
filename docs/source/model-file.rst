@@ -55,6 +55,43 @@ There are also some optional keys that ``nam`` may use:
   * ``"output_level_dbu"``: The level, in dBu, of a 1kHz sine wave that achieves 0dBFS
     peak when input to the interface that's recording the output of the gear being
     modeled.
+  * ``"loudness"``: How loud the model is, in dB, when fed a standardized input
+    (written by the trainer at export). Players use it to keep a steady volume
+    when switching models, typically as ``gain_dB = -18 - loudness``. The input
+    is a 1.75 s train of seven instrument-shaped noise bursts spanning -39 to
+    -15 dBFS RMS; the model's output is K-weighted (ITU-R BS.1770), the level of
+    each burst is measured in dB, and the burst levels are averaged in dB with a
+    fixed +3 dB calibration offset. Measuring over a range of input levels makes
+    the value insensitive to how hard the player drives the model. Files
+    exported by versions of ``nam`` on v0.13.0 or older used the flat RMS of
+    1 s of pink noise at -15 dBFS instead; the two agree in their median but
+    differ per model by up to roughly +-10 dB. See
+    `tone-3000/loudness-research <https://github.com/tone-3000/loudness-research>`_
+    for the evaluation behind the definition.
+  * ``"gain"``: A heuristic between 0 and 1 for how much gain/compression the
+    model appears to have (0 is linear), derived from how the output level grows
+    as the standardized input is scaled.
+  * ``"weights_hash"``: identifies the weights that are actually run, independent
+    of the rest of the file, so editing metadata does not change it; two files with
+    the same ``weights_hash`` are the same model. Written by the trainer at export,
+    after the post hooks, as ``"nam-content-v1:"`` followed by 64 lowercase hex
+    characters::
+
+      weights_hash = "nam-content-v1:" + hex(SHA-256(
+          "nam-content-v1" 0x00
+          for each leaf model, depth-first:
+              u64le(N) || f32le(w[0]) || ... || f32le(w[N-1])
+      ))
+
+    Each weight is rounded to a 32-bit float, with ``-0`` written as ``+0``; ``N`` is
+    the leaf's weight count. Models that contain other models have empty
+    ``"weights"`` and hash their children: a ``"SlimmableContainer"`` from the
+    smallest ``max_value`` to the largest, a ``"Sequential"`` model in processing
+    order. A file with a leaf that has no weights, a malformed container, or a
+    weight that isn't a finite float32 gets no ``weights_hash``.
+    ``nam.models.content_hash.weights_hash(model_dict)`` computes it for any parsed
+    ``.nam`` file, and ``tests/resources/content_hash_test_vectors.json`` lists
+    models with their expected hash for checking other implementations.
 
 
 Sequential models

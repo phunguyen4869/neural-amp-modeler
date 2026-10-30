@@ -35,6 +35,11 @@ class PackedWaveNet(_BaseNet, _ImportsWeights):
         super().__init__(sample_rate=sample_rate)
         self._net = wavenet
         self._spec = spec
+        # Structure is fixed after construction. Cache the modules (not their
+        # tensors: `.to()` replaces buffers) so apply_mask() is cheap.
+        self._packed_convs = tuple(
+            m for m in self.modules() if isinstance(m, _PackedConv1dBase)
+        )
         self.apply_mask()
 
     @classmethod
@@ -167,7 +172,7 @@ class PackedWaveNet(_BaseNet, _ImportsWeights):
             container["metadata"].update(_cast_enums(user_metadata.model_dump()))
         if other_metadata is not None:
             container["metadata"].update(_cast_enums(other_metadata))
-        container = self._apply_export_model_dict_post_hooks(model_dict=container)
+        container = self._finalize_export_model_dict(model_dict=container)
 
         outdir = _Path(outdir)
         with open(_Path(outdir, f"{basename}{self.FILE_EXTENSION}"), "w") as fp:
@@ -179,9 +184,13 @@ class PackedWaveNet(_BaseNet, _ImportsWeights):
         return container
 
     def apply_mask(self) -> None:
-        for module in self.modules():
-            if isinstance(module, _PackedConv1dBase):
-                module.apply_mask()
+        # One fused foreach op instead of a kernel launch per convolution; this
+        # runs after every optimizer step.
+        with _torch.no_grad():
+            _torch._foreach_mul_(
+                [m._parameters["weight"] for m in self._packed_convs],
+                [m._buffers["_weight_mask"] for m in self._packed_convs],
+            )
 
     def _assert_masked(self) -> None:
         for module in self.modules():
